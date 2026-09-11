@@ -12,7 +12,7 @@ func TestLoadConfig(t *testing.T) {
 	if err != nil {
 		t.Fatal("Error loading .env file")
 	}
-	config, err := LoadConfig("../../config")
+	config, err := Load("../../config")
 	if err != nil {
 		t.Fatal(err)
 	}

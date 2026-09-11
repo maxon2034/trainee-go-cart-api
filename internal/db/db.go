@@ -2,7 +2,6 @@ package db
 
 import (
 	"context"
-	"database/sql"
 	"embed"
 	"fmt"
 	"time"
@@ -16,7 +15,7 @@ import (
 //go:embed migrations/*.sql
 var embedMigrations embed.FS
 
-func Open(cfg config.Config) (*sqlx.DB, error) {
+func NewPostgres(ctx context.Context, cfg config.Config) (*sqlx.DB, error) {
 	dsn := fmt.Sprintf(
 		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
 		cfg.DB.Host, cfg.DB.Port, cfg.DB.User, cfg.DB.Password, cfg.DB.Name, cfg.DB.SSLMode,
@@ -31,26 +30,24 @@ func Open(cfg config.Config) (*sqlx.DB, error) {
 	db.SetMaxIdleConns(25)
 	db.SetConnMaxLifetime(5 * time.Minute)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
 	if err := db.PingContext(ctx); err != nil {
-		_ = db.Close() // Закрываем пул, если база недоступна
+		_ = db.Close()
 		return nil, fmt.Errorf("failed to ping postgresql at %s:%d: %w", cfg.DB.Host, cfg.DB.Port, err)
 	}
 
 	return db, nil
 }
 
-func RunMigrations(db *sql.DB) error {
+func RunMigrations(db *sqlx.DB) error {
 	goose.SetBaseFS(embedMigrations)
 
+	stdDB := db.DB
 	if err := goose.SetDialect("postgres"); err != nil {
 		return fmt.Errorf("goose set dialect error: %w", err)
 	}
 
 	// Накатываем миграции из папки migrations
-	if err := goose.Up(db, "migrations"); err != nil {
+	if err := goose.Up(stdDB, "migrations"); err != nil {
 		return fmt.Errorf("goose up error: %w", err)
 	}
 

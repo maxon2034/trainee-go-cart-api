@@ -5,9 +5,9 @@ import (
 )
 
 type CartRepository struct {
-	db sqlx.DB
+	DB *sqlx.DB
 }
 
-func NewRepository(db sqlx.DB) *CartRepository {
-	return &CartRepository{db: db}
+func NewRepository(db *sqlx.DB) *CartRepository {
+	return &CartRepository{DB: db}
 }

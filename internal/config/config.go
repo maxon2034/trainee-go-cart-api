@@ -25,7 +25,7 @@ type DBConfig struct {
 	SSLMode  string `mapstructure:"sslmode"`
 }
 
-func LoadConfig(path string) (*Config, error) {
+func Load(path string) (Config, error) {
 	v := viper.New()
 
 	v.AddConfigPath(path)
@@ -37,13 +37,13 @@ func LoadConfig(path string) (*Config, error) {
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	if err := v.ReadInConfig(); err != nil {
-		return nil, fmt.Errorf("failed to read config file from path %q: %w", path, err)
+		return Config{}, fmt.Errorf("failed to read config file from path %q: %w", path, err)
 	}
 
 	var cfg Config
 	if err := v.Unmarshal(&cfg); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal config into struct: %w", err)
+		return Config{}, fmt.Errorf("failed to unmarshal config into struct: %w", err)
 	}
 
-	return &cfg, nil
+	return cfg, nil
 }
