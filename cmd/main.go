@@ -5,8 +5,9 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/joho/godotenv"
 	"github.com/maxon2034/trainee-go-cart-api/internal/config"
-	"github.com/maxon2034/trainee-go-cart-api/pkg/db/postgres"
+	"github.com/maxon2034/trainee-go-cart-api/internal/db"
 )
 
 var cfgPath string = "config/"
@@ -16,15 +17,18 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	cfg, err := config.Load(cfgPath)
-	if err != nil {
-		log.Panic(err)
-
+	if err := godotenv.Load(".env"); err != nil {
+		log.Fatalf("Error loading .env file: %v", err)
 	}
 
-	DB, err := postgres.New(ctx, cfg.DB.DSN)
+	cfg, err := config.Load(cfgPath)
 	if err != nil {
-		log.Panic(err)
+		log.Print(err)
+	}
+
+	DB, err := db.NewPostgres(ctx, cfg)
+	if err != nil {
+		log.Fatal(err)
 	}
 	defer func() {
 		if err := DB.Close(); err != nil {
@@ -32,8 +36,8 @@ func main() {
 		}
 	}()
 
-	if err := postgres.RunMigrations(DB); err != nil {
-		log.Panic(err)
+	if err := db.RunMigrations(DB); err != nil {
+		log.Fatal(err)
 	}
 
 	mux := http.NewServeMux()
@@ -41,6 +45,6 @@ func main() {
 	// handlers
 
 	if err = http.ListenAndServe(cfg.Server.Port, mux); err != nil {
-		log.Panic("error in starting server: ", err)
+		log.Fatal("error in starting server: ", err)
 	}
 }
