@@ -15,12 +15,27 @@ func (s *CartService) CreateCart(ctx context.Context) (entity.CreateCartResponse
 	return entity.CreateCartResponse{ID: cart.ID, Items: make([]entity.CartItem, 0)}, nil
 }
 
-func ViewCart() {}
+func (s *CartService) ViewCart() {
+	//TODO implement me
+	panic("implement me")
+}
 
-func AddItem() {}
+func (s *CartService) AddItem() {
+	//TODO implement me
+	panic("implement me")
+}
 
-func UpdateItem() {}
+func (s *CartService) UpdateItem() {
+	//TODO implement me
+	panic("implement me")
+}
 
-func RemoveItem() {}
+func (s *CartService) RemoveItem() {
+	//TODO implement me
+	panic("implement me")
+}
 
-func CalculatePrice() {}
+func (s *CartService) CalculatePrice() {
+	//TODO implement me
+	panic("implement me")
+}
