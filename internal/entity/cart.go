@@ -6,5 +6,5 @@ import (
 
 type Cart struct {
 	ID        int       `db:"id"`
-	createdAt time.Time `db:"created_at"`
+	CreatedAt time.Time `db:"created_at"`
 }
