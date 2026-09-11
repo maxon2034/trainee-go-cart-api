@@ -1,7 +1,7 @@
 package service
 
-type Service struct {
+type CartService struct {
 	repo Repository
 }
 
-func NewService(rep Repository) *Service { return &Service{repo: rep} }
+func NewService(rep Repository) *CartService { return &CartService{repo: rep} }
