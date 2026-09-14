@@ -3,13 +3,11 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
 
 	"github.com/joho/godotenv"
 	"github.com/maxon2034/trainee-go-cart-api/internal/config"
 	"github.com/maxon2034/trainee-go-cart-api/internal/db"
-	"github.com/maxon2034/trainee-go-cart-api/internal/handlers"
-	"github.com/maxon2034/trainee-go-cart-api/internal/repository"
-	"github.com/maxon2034/trainee-go-cart-api/internal/service"
 )
 
 var cfgPath string = "config/"
@@ -42,14 +40,11 @@ func main() {
 		log.Fatal(err)
 	}
 
-	repo := repository.New(DB)
+	mux := http.NewServeMux()
 
-	service := service.NewService(repo)
+	// handlers
 
-	server := handlers.NewServer(ctx, cfg, service)
-	defer server.Shutdown(ctx)
-
-	if err := server.ListenAndServe(); err != nil {
-		log.Fatal(err)
+	if err = http.ListenAndServe(cfg.Server.Port, mux); err != nil {
+		log.Fatal("error in starting server: ", err)
 	}
 }
