@@ -22,9 +22,13 @@ func (r *CartRepository) AddCart(ctx context.Context) (*entity.Cart, error) {
 
 func (r *CartRepository) GetCart(ctx context.Context, id int) (*entity.CartDTO, error) {
 	var cart entity.CartDTO
-	cart.ID = id
+	queryCart := `SELECT id FROM carts WHERE id = $1`
+	err := r.DB.QueryRowContext(ctx, queryCart, id).Scan(&cart.ID)
+	if err != nil {
+		return nil, fmt.Errorf("error in getting cart: %w", err)
+	}
 
-	query := `SELECT * FROM cart_items WHERE id = ?;`
+	query := `SELECT * FROM cart_items WHERE cart_id=$1`
 
 	rows, err := r.DB.QueryContext(ctx, query, id)
 	if err != nil {
