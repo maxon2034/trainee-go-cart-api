@@ -15,9 +15,12 @@ func (s *CartService) CreateCart(ctx context.Context) (entity.CreateCartResponse
 	return entity.CreateCartResponse{ID: cart.ID, Items: make([]entity.CartItem, 0)}, nil
 }
 
-func (s *CartService) ViewCart() {
-	//TODO implement me
-	panic("implement me")
+func (s *CartService) ViewCart(ctx context.Context, id int) (entity.CreateCartResponse, error) {
+	cart, err := s.repo.GetCart(ctx, id)
+	if err != nil {
+		return entity.CreateCartResponse{}, fmt.Errorf("error in adding cart: %w", err)
+	}
+	return entity.CreateCartResponse{ID: cart.ID, Items: cart.Items}, nil
 }
 
 func (s *CartService) AddItem() {
