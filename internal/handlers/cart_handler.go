@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -41,6 +42,7 @@ func (h *CartHandler) Create(w http.ResponseWriter, r *http.Request) {
 func (h *CartHandler) View(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)
+		log.Print("invalid method")
 		return
 	}
 
@@ -49,7 +51,14 @@ func (h *CartHandler) View(w http.ResponseWriter, r *http.Request) {
 
 	id := r.URL.Query().Get("id")
 
-	cartResp, err := h.service.ViewCart(ctx, id)
+	idInt, err := strconv.Atoi(id)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		log.Print("invalid id", id, idInt)
+		return
+	}
+
+	cartResp, err := h.service.ViewCart(ctx, idInt)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 	}

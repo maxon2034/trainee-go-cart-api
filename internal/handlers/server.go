@@ -14,6 +14,7 @@ func NewServer(ctx context.Context, cfg config.Config, service Service) *http.Se
 	cartHandler := NewCartHandler(service)
 
 	mux.HandleFunc("POST /api/v1/carts", cartHandler.Create)
+	mux.HandleFunc("GET /api/v1/carts/:id", cartHandler.View)
 
 	return &http.Server{
 		Addr:    cfg.Server.Port,
