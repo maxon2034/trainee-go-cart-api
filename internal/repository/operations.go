@@ -20,8 +20,8 @@ func (r *CartRepository) AddCart(ctx context.Context) (*entity.Cart, error) {
 	return &cart, nil
 }
 
-func (r *CartRepository) GetCart(ctx context.Context, id int) (*entity.CartResponse, error) {
-	var cart entity.CreateCartResponse
+func (r *CartRepository) GetCart(ctx context.Context, id int) (*entity.CartDTO, error) {
+	var cart entity.CartDTO
 	cart.ID = id
 
 	query := `SELECT * FROM cart_items WHERE id = ?;`
@@ -33,7 +33,7 @@ func (r *CartRepository) GetCart(ctx context.Context, id int) (*entity.CartRespo
 	defer rows.Close()
 
 	for rows.Next() {
-		var cartItem entity.CartItemResponse
+		var cartItem entity.CartItemDTO
 		if err := rows.Scan(&cartItem); err != nil {
 			return nil, fmt.Errorf("error in getting cartItem: %w", err)
 		}
