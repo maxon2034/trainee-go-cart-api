@@ -7,8 +7,8 @@ import (
 )
 
 type Service interface {
-	CreateCart(ctx context.Context) (entity.CreateCartResponse, error)
-	ViewCart()
+	CreateCart(ctx context.Context) (entity.CartDTO, error)
+	ViewCart(ctx context.Context, id int) (entity.CartDTO, error)
 	AddItem()
 	UpdateItem()
 	RemoveItem()
