@@ -14,6 +14,13 @@ type CartItem struct {
 	Price   float64 `db:"price"`
 }
 
+type CartItemDTO struct {
+	ID      int     `json:"id"`
+	CartID  int     `json:"cart_id"`
+	Product string  `json:"product"`
+	Price   float64 `json:"price"`
+}
+
 func NewCartItem(product string, price float64) (*CartItem, error) {
 	if product == "" {
 		return nil, ErrEmptyProduct
