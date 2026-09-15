@@ -7,6 +7,7 @@ import (
 	"github.com/maxon2034/trainee-go-cart-api/internal/entity"
 )
 
+<<<<<<< HEAD
 func (s *CartService) CreateCart(ctx context.Context) (entity.CartDTO, error) {
 	cart, err := s.repo.AddCart(ctx)
 	if err != nil {
@@ -21,6 +22,22 @@ func (s *CartService) ViewCart(ctx context.Context, id int) (entity.CartDTO, err
 		return entity.CartDTO{}, fmt.Errorf("error in adding cart: %w", err)
 	}
 	return entity.CartDTO{ID: cart.ID, Items: cart.Items}, nil
+=======
+func (s *CartService) CreateCart(ctx context.Context) (entity.CreateCartResponse, error) {
+	cart, err := s.repo.AddCart(ctx)
+	if err != nil {
+		return entity.CreateCartResponse{}, fmt.Errorf("error in adding cart: %w", err)
+	}
+	return entity.CreateCartResponse{ID: cart.ID, Items: make([]entity.CartItem, 0)}, nil
+}
+
+func (s *CartService) ViewCart(ctx context.Context, id int) (entity.CreateCartResponse, error) {
+	cart, err := s.repo.GetCart(ctx, id)
+	if err != nil {
+		return entity.CreateCartResponse{}, fmt.Errorf("error in adding cart: %w", err)
+	}
+	return entity.CreateCartResponse{ID: cart.ID, Items: cart.Items}, nil
+>>>>>>> 55cad3ff9b4b7a6c5e670671c9fac94ae25ed0e0
 }
 
 func (s *CartService) AddItem() {
