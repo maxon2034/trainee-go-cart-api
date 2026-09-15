@@ -10,6 +10,6 @@ type Cart struct {
 }
 
 type CartDTO struct {
-	ID    int        `json:"id"`
-	Items []CartItem `json:"items"`
+	ID    int           `json:"id"`
+	Items []CartItemDTO `json:"items"`
 }
