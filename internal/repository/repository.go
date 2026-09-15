@@ -8,6 +8,6 @@ type CartRepository struct {
 	DB *sqlx.DB
 }
 
-func NewRepository(db *sqlx.DB) *CartRepository {
+func New(db *sqlx.DB) *CartRepository {
 	return &CartRepository{DB: db}
 }
