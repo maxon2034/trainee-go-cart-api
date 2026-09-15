@@ -8,6 +8,13 @@ var (
 )
 
 type CartItem struct {
+	ID      int     `db:"id"`
+	CartID  int     `db:"cart_id"`
+	Product string  `db:"product"`
+	Price   float64 `db:"price"`
+}
+
+type CartItemDTO struct {
 	ID      int     `json:"id"`
 	CartID  int     `json:"cart_id"`
 	Product string  `json:"product"`

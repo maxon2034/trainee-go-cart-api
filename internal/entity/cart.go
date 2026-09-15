@@ -1,18 +1,15 @@
 package entity
 
-import "errors"
-
-var ErrCartFull = errors.New("cart exceeds maximum items limit")
+import (
+	"time"
+)
 
 type Cart struct {
-	ID    int        `json:"id"`
-	Items []CartItem `json:"items"`
+	ID        int       `db:"id"`
+	CreatedAt time.Time `db:"created_at"`
 }
 
-func (c *Cart) AddItem(item CartItem) error {
-	if len(c.Items) >= 5 {
-		return ErrCartFull
-	}
-	c.Items = append(c.Items, item)
-	return nil
+type CartDTO struct {
+	ID    int           `json:"id"`
+	Items []CartItemDTO `json:"items"`
 }
