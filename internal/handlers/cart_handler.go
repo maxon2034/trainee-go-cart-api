@@ -19,11 +19,10 @@ func NewCartHandler(service Service) CartHandler {
 
 func (h *CartHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	ctx, cancel := context.WithTimeout(r.Context(), time.Second*5)
 	defer cancel()
 
 	cartResp, err := h.service.CreateCart(ctx)
@@ -41,15 +40,13 @@ func (h *CartHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 func (h *CartHandler) View(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		log.Print("invalid method")
 		return
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 
-	id := r.URL.Query().Get("id")
+	id := r.PathValue("id")
 
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
@@ -61,6 +58,7 @@ func (h *CartHandler) View(w http.ResponseWriter, r *http.Request) {
 	cartResp, err := h.service.ViewCart(ctx, idInt)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")

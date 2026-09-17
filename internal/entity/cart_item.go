@@ -8,17 +8,10 @@ var (
 )
 
 type CartItem struct {
-	ID      int     `db:"id"`
-	CartID  int     `db:"cart_id"`
-	Product string  `db:"product"`
-	Price   float64 `db:"price"`
-}
-
-type CartItemDTO struct {
-	ID      int     `json:"id"`
-	CartID  int     `json:"cart_id"`
-	Product string  `json:"product"`
-	Price   float64 `json:"price"`
+	ID      int
+	CartID  int
+	Product string
+	Price   float64
 }
 
 func NewCartItem(product string, price float64) (*CartItem, error) {
