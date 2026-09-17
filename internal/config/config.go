@@ -23,6 +23,7 @@ type DBConfig struct {
 	Password string `mapstructure:"password"`
 	Name     string `mapstructure:"name"`
 	SSLMode  string `mapstructure:"sslmode"`
+	DSN      string `mapstructure:"dsn"`
 }
 
 func Load(path string) (Config, error) {
@@ -32,9 +33,9 @@ func Load(path string) (Config, error) {
 	v.SetConfigName("config")
 	v.SetConfigType("yaml")
 
-	v.AutomaticEnv()
-
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+
+	v.AutomaticEnv()
 
 	if err := v.ReadInConfig(); err != nil {
 		return Config{}, fmt.Errorf("failed to read config file from path %q: %w", path, err)
@@ -45,5 +46,16 @@ func Load(path string) (Config, error) {
 		return Config{}, fmt.Errorf("failed to unmarshal config into struct: %w", err)
 	}
 
+	if cfg.DB.DSN == "" {
+		cfg.DB.DSN = cfg.DB.BuildDSN()
+	}
+
 	return cfg, nil
+}
+
+func (db DBConfig) BuildDSN() string {
+	return fmt.Sprintf(
+		"host='%s' port='%d' user='%s' password='%s' dbname='%s' sslmode='%s'",
+		db.Host, db.Port, db.User, db.Password, db.Name, db.SSLMode,
+	)
 }
