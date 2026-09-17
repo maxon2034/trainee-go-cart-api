@@ -18,3 +18,10 @@ CREATE TABLE IF NOT EXISTS cart_items (
 
 CREATE INDEX IF NOT EXISTS idx_cart_items_cart_id ON cart_items(cart_id);
 -- +goose StatementEnd
+
+-- +goose Down
+-- +goose StatementBegin
+DROP INDEX IF EXISTS idx_cart_items_cart_id;
+DROP TABLE IF EXISTS cart_items;
+DROP TABLE IF EXISTS carts;
+-- +goose StatementEnd

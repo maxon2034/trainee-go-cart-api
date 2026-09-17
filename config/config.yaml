@@ -8,3 +8,4 @@ db:
   name: "cart_db"
   password: ""
   sslmode: "disable"
+  dsn: ""
