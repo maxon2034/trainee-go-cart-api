@@ -1,6 +1,10 @@
 package entity
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/google/uuid"
+)
 
 var (
 	ErrEmptyProduct = errors.New("product cannot be empty")
@@ -8,10 +12,10 @@ var (
 )
 
 type CartItem struct {
-	ID      int     `json:"id"`
-	CartID  int     `json:"cart_id"`
-	Product string  `json:"product"`
-	Price   float64 `json:"price"`
+	ID      uuid.UUID
+	CartID  uuid.UUID
+	Product string
+	Price   float64
 }
 
 func NewCartItem(product string, price float64) (*CartItem, error) {

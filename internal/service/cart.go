@@ -1,13 +1,54 @@
 package service
 
-func CreateCart() {}
+import (
+	"context"
+	"errors"
+	"fmt"
 
-func ViewCart() {}
+	"github.com/google/uuid"
+	"github.com/maxon2034/trainee-go-cart-api/internal/repository"
+)
 
-func AddItem() {}
+func (s *CartService) CreateCart(ctx context.Context) (CartDTO, error) {
+	cart, err := s.repo.AddCart(ctx)
+	if err != nil {
+		return CartDTO{}, fmt.Errorf("s.CreateCart: %w", err)
+	}
 
-func UpdateItem() {}
+	cartDTO := ToDTO(cart)
+	return cartDTO, nil
+}
 
-func RemoveItem() {}
+func (s *CartService) ViewCart(ctx context.Context, id uuid.UUID) (CartDTO, error) {
+	cart, err := s.repo.GetCart(ctx, id)
+	if err != nil {
+		if errors.Is(err, repository.ErrCartNotFound) {
+			return CartDTO{}, repository.ErrCartNotFound
+		}
+		return CartDTO{}, fmt.Errorf("s.ViewCart: %w", err)
+	}
 
-func CalculatePrice() {}
+	cartDTO := ToDTO(cart)
+
+	return cartDTO, nil
+}
+
+func (s *CartService) AddItem() {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (s *CartService) UpdateItem() {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (s *CartService) RemoveItem() {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (s *CartService) CalculatePrice() {
+	//TODO implement me
+	panic("implement me")
+}

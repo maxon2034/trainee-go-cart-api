@@ -1,6 +1,7 @@
 server:
   port: ":8080"
-
+  read_timeout: 5
+  write_timeout: 5
 db:
   host: "localhost"
   port: 5432
@@ -8,3 +9,4 @@ db:
   name: "cart_db"
   password: ""
   sslmode: "disable"
+  dsn: ""
