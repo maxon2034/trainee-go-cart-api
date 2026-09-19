@@ -1,6 +1,8 @@
 package entity
 
+import "github.com/google/uuid"
+
 type Cart struct {
-	ID    int
+	ID    uuid.UUID
 	Items []CartItem
 }

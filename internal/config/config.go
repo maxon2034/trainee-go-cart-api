@@ -41,12 +41,12 @@ func Load(path string) (Config, error) {
 	v.AutomaticEnv()
 
 	if err := v.ReadInConfig(); err != nil {
-		return Config{}, fmt.Errorf("failed to read config file from path %q: %w", path, err)
+		return Config{}, fmt.Errorf("cfg Load path %q: %w", path, err)
 	}
 
 	var cfg Config
 	if err := v.Unmarshal(&cfg); err != nil {
-		return Config{}, fmt.Errorf("failed to unmarshal config into struct: %w", err)
+		return Config{}, fmt.Errorf("cfg Load: %w", err)
 	}
 
 	if cfg.DB.DSN == "" {

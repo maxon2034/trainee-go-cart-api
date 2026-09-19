@@ -14,7 +14,7 @@ import (
 func New(ctx context.Context, dsn string) (*sqlx.DB, error) {
 	db, err := sqlx.Open("pgx", dsn)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse DSN or open driver: %w", err)
+		return nil, fmt.Errorf("db.New: %w", err)
 	}
 
 	db.SetMaxOpenConns(25)
@@ -23,7 +23,7 @@ func New(ctx context.Context, dsn string) (*sqlx.DB, error) {
 
 	if err := db.PingContext(ctx); err != nil {
 		_ = db.Close()
-		return nil, fmt.Errorf("failed to ping postgresql: %w", err)
+		return nil, fmt.Errorf("db.New: %w", err)
 	}
 
 	return db, nil
@@ -34,12 +34,11 @@ func RunMigrations(db *sqlx.DB) error {
 
 	stdDB := db.DB
 	if err := goose.SetDialect("postgres"); err != nil {
-		return fmt.Errorf("goose set dialect error: %w", err)
+		return fmt.Errorf("db.RunMigrations: %w", err)
 	}
 
-	// Накатываем миграции из папки migrations
-	if err := goose.Up(stdDB, "/../../migrations"); err != nil {
-		return fmt.Errorf("goose up error: %w", err)
+	if err := goose.Up(stdDB, "."); err != nil {
+		return fmt.Errorf("db.RunMigrations: %w", err)
 	}
 
 	return nil

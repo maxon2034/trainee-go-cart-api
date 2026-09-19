@@ -1,6 +1,10 @@
 package entity
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/google/uuid"
+)
 
 var (
 	ErrEmptyProduct = errors.New("product cannot be empty")
@@ -8,8 +12,8 @@ var (
 )
 
 type CartItem struct {
-	ID      int
-	CartID  int
+	ID      uuid.UUID
+	CartID  uuid.UUID
 	Product string
 	Price   float64
 }

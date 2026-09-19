@@ -2,25 +2,35 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
-	"github.com/maxon2034/trainee-go-cart-api/internal/entity"
+	"github.com/google/uuid"
+	"github.com/maxon2034/trainee-go-cart-api/internal/repository"
 )
 
-func (s *CartService) CreateCart(ctx context.Context) (entity.CartDTO, error) {
+func (s *CartService) CreateCart(ctx context.Context) (CartDTO, error) {
 	cart, err := s.repo.AddCart(ctx)
 	if err != nil {
-		return entity.CartDTO{}, fmt.Errorf("error in adding cart: %w", err)
+		return CartDTO{}, fmt.Errorf("s.CreateCart: %w", err)
 	}
-	return entity.CartDTO{ID: cart.ID, Items: make([]entity.CartItemDTO, 0)}, nil
+
+	cartDTO := ToDTO(cart)
+	return cartDTO, nil
 }
 
-func (s *CartService) ViewCart(ctx context.Context, id int) (entity.CartDTO, error) {
+func (s *CartService) ViewCart(ctx context.Context, id uuid.UUID) (CartDTO, error) {
 	cart, err := s.repo.GetCart(ctx, id)
 	if err != nil {
-		return entity.CartDTO{}, fmt.Errorf("error in adding cart: %w", err)
+		if errors.Is(err, repository.ErrCartNotFound) {
+			return CartDTO{}, repository.ErrCartNotFound
+		}
+		return CartDTO{}, fmt.Errorf("s.ViewCart: %w", err)
 	}
-	return entity.CartDTO{ID: cart.ID, Items: cart.Items}, nil
+
+	cartDTO := ToDTO(cart)
+
+	return cartDTO, nil
 }
 
 func (s *CartService) AddItem() {
