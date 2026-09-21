@@ -52,7 +52,7 @@ func (h *CartHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 func (h *CartHandler) View(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		h.logger.Error(r.URL.Path, "Invalid method")
+		h.logger.Error("Invalid method")
 		return
 	}
 

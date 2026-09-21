@@ -1,8 +1,12 @@
 package server
 
 import (
+	"context"
+	"errors"
 	"log/slog"
 	"net/http"
+	"os"
+	"os/signal"
 	"time"
 
 	"github.com/maxon2034/trainee-go-cart-api/internal/config"
@@ -33,7 +37,38 @@ func New(cfg config.ServerConfig, logger *slog.Logger) *Server {
 
 func (s *Server) Run() error {
 	// TODO: init server running
-	return s.server.ListenAndServe()
+	errsChan := make(chan error, 1)
+
+	go func() {
+		s.logger.Info("starting server", slog.String("port", s.cfg.Port))
+		errsChan <- s.server.ListenAndServe()
+
+		if err := s.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errsChan <- err
+		}
+		close(errsChan)
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt)
+
+	select {
+	case <-quit:
+		return nil
+	case err := <-errsChan:
+		return err
+	}
+}
+
+func (s Server) Close(ctx context.Context) error {
+	shutdownCtx, cancel := context.WithTimeout(ctx, s.cfg.CtxDefaultTimeout*time.Second)
+	defer cancel()
+	err := s.server.Shutdown(shutdownCtx)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *Server) RegisterRoutes(h Handler) *Server {
