@@ -60,7 +60,7 @@ func (s *Server) Run() error {
 	}
 }
 
-func (s Server) Close(ctx context.Context) error {
+func (s *Server) Close(ctx context.Context) error {
 	shutdownCtx, cancel := context.WithTimeout(ctx, s.cfg.CtxDefaultTimeout*time.Second)
 	defer cancel()
 	err := s.server.Shutdown(shutdownCtx)
