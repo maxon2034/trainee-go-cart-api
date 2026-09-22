@@ -33,9 +33,20 @@ func (s *CartService) ViewCart(ctx context.Context, id uuid.UUID) (CartDTO, erro
 	return cartDTO, nil
 }
 
-func (s *CartService) AddItem() {
-	//TODO implement me
-	panic("implement me")
+func (s *CartService) AddItem(ctx context.Context, cartId uuid.UUID, product string, price float64) (CartItemDTO, error) {
+	cartItem, err := s.repo.AddCartItem(ctx, cartId, product, price)
+	if err != nil {
+		if errors.Is(err, errs.ErrFullCart) {
+			return CartItemDTO{}, errs.ErrFullCart
+		}
+		return CartItemDTO{}, fmt.Errorf("s.AddItem: %w", err)
+	}
+
+	cartItemDTO := ItemToDTO(cartItem)
+
+	fmt.Println(cartItemDTO)
+
+	return cartItemDTO, nil
 }
 
 func (s *CartService) UpdateItem() {

@@ -55,8 +55,32 @@ func (r *CartRepository) GetCart(ctx context.Context, id uuid.UUID) (*entity.Car
 	}
 	return &cart, nil
 }
-func (r *CartRepository) AddCartItem(ctx context.Context, item *entity.CartItem) error {
-	return errors.New("not implemented")
+func (r *CartRepository) AddCartItem(ctx context.Context, cartID uuid.UUID, product string, price float64) (*entity.CartItem, error) {
+	var count int
+	var cartItemDBO CartItemDBO
+	var cartItem entity.CartItem
+	q := `SELECT COUNT(*) FROM cart_items WHERE cart_id=$1`
+
+	if err := r.db.GetContext(ctx, &count, q, cartID); err != nil {
+		return nil, fmt.Errorf("r.AddCartItem1: %w", err)
+	}
+	if count == 5 {
+		return nil, errs.ErrFullCart
+	}
+
+	q = `INSERT INTO cart_items (cart_id, product, price)
+VALUES ($1, $2, $3)
+RETURNING id,cart_id, product, price`
+	if err := r.db.GetContext(ctx, &cartItemDBO, q, cartID, product, price); err != nil {
+		return nil, fmt.Errorf("r.AddCartItem2: %w", err)
+	}
+	cartItem.CartID = cartItemDBO.CartID
+	cartItem.ID = cartItemDBO.ID
+	cartItem.Product = cartItemDBO.Product
+	cartItem.Price = cartItemDBO.Price
+
+	fmt.Println(cartItemDBO)
+	return &cartItem, nil
 }
 func (r *CartRepository) UpdateCartItem(ctx context.Context, item *entity.CartItem) error {
 	return errors.New("not implemented")

@@ -36,3 +36,10 @@ func InternalServerError() []byte {
 		Message: "An internal server errs occurred. Please try again later.",
 	}.ToBytes()
 }
+
+func FullCart() []byte {
+	return ErrorResponse{
+		Error:   "FULL_CART",
+		Message: "Unable to add item to cart. Cart is full",
+	}.ToBytes()
+}

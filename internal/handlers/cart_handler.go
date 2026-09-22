@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -81,4 +82,57 @@ func (h *CartHandler) View(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.logger.Info("viewed cart", slog.Any("cart", cart))
+}
+
+func (h *CartHandler) AddItem(w http.ResponseWriter, r *http.Request) {
+
+	var itemRequest ItemRequestDTO
+
+	ctx, cancel := context.WithTimeout(r.Context(), time.Second*5)
+	defer cancel()
+
+	cartId := r.PathValue("cart_id")
+	cartUUID, err := uuid.Parse(cartId)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write(errs.BadRequest())
+		h.logger.Error("error in parsing uuid", slog.Any("error", err))
+		return
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&itemRequest); err != nil {
+		h.logger.Error("error in parsing request", slog.Any("error", err))
+		w.Write(errs.BadRequest())
+		return
+	}
+	defer r.Body.Close()
+
+	cartItem, err := h.service.AddItem(ctx, cartUUID, itemRequest.Product, itemRequest.Price)
+	if err != nil {
+		if errors.Is(err, errs.ErrCartNotFound) {
+			w.WriteHeader(http.StatusNotFound)
+			w.Write(errs.NotFound())
+			h.logger.Info("cart not found", slog.Any("id", cartUUID.String()))
+			return
+		}
+		if errors.Is(err, errs.ErrFullCart) {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write(errs.FullCart())
+			h.logger.Info("cart full", slog.Any("id", cartUUID.String()))
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write(errs.InternalServerError())
+		h.logger.Error("error in adding item", slog.Any("error", err))
+		return
+	}
+	fmt.Println(cartItem)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	if err := json.NewEncoder(w).Encode(cartItem); err != nil {
+		h.logger.Error("error in forming response", slog.Any("error", err))
+		return
+	}
+	h.logger.Info("added item", slog.Any("cartItem", cartItem))
 }

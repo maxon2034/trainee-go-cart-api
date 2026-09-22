@@ -28,3 +28,11 @@ func ToDTO(cart *entity.Cart) (cartDTO CartDTO) {
 	}
 	return cartDTO
 }
+
+func ItemToDTO(item *entity.CartItem) (cartItemDTO CartItemDTO) {
+	cartItemDTO.ID = item.ID
+	cartItemDTO.CartID = item.CartID
+	cartItemDTO.Product = item.Product
+	cartItemDTO.Price = item.Price
+	return cartItemDTO
+}
