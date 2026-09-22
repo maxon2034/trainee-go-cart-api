@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/maxon2034/trainee-go-cart-api/internal/repository"
+	"github.com/maxon2034/trainee-go-cart-api/internal/errs"
 )
 
 func (s *CartService) CreateCart(ctx context.Context) (CartDTO, error) {
@@ -22,8 +22,8 @@ func (s *CartService) CreateCart(ctx context.Context) (CartDTO, error) {
 func (s *CartService) ViewCart(ctx context.Context, id uuid.UUID) (CartDTO, error) {
 	cart, err := s.repo.GetCart(ctx, id)
 	if err != nil {
-		if errors.Is(err, repository.ErrCartNotFound) {
-			return CartDTO{}, repository.ErrCartNotFound
+		if errors.Is(err, errs.ErrCartNotFound) {
+			return CartDTO{}, errs.ErrCartNotFound
 		}
 		return CartDTO{}, fmt.Errorf("s.ViewCart: %w", err)
 	}

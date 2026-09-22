@@ -8,9 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/maxon2034/trainee-go-cart-api/internal/entity"
+	"github.com/maxon2034/trainee-go-cart-api/internal/errs"
 )
-
-var ErrCartNotFound = errors.New("cart not found")
 
 func (r *CartRepository) AddCart(ctx context.Context) (*entity.Cart, error) {
 	var cart entity.Cart
@@ -30,11 +29,12 @@ func (r *CartRepository) AddCart(ctx context.Context) (*entity.Cart, error) {
 func (r *CartRepository) GetCart(ctx context.Context, id uuid.UUID) (*entity.Cart, error) {
 	var cart entity.Cart
 	var cartDBO CartDBO
+	var cartItemsDBO []CartItemDBO
 	q := `SELECT id FROM carts WHERE id = $1`
 	err := r.db.QueryRowContext(ctx, q, id).Scan(&cartDBO.ID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrCartNotFound
+			return nil, errs.ErrCartNotFound
 		}
 		return nil, fmt.Errorf("r.GetCart: %w", err)
 	}
@@ -42,8 +42,16 @@ func (r *CartRepository) GetCart(ctx context.Context, id uuid.UUID) (*entity.Car
 
 	q = `SELECT id,product,price FROM cart_items WHERE cart_id=$1`
 
-	if err := r.db.SelectContext(ctx, &cart.Items, q, id); err != nil {
+	if err := r.db.SelectContext(ctx, &cartItemsDBO, q, id); err != nil {
 		return nil, fmt.Errorf("r.GetCart: %w", err)
+	}
+	for _, item := range cartItemsDBO {
+		cart.Items = append(cart.Items, entity.CartItem{
+			ID:      item.ID,
+			CartID:  item.ID,
+			Product: item.Product,
+			Price:   item.Price,
+		})
 	}
 	return &cart, nil
 }

@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -23,19 +22,21 @@ func Run(ctx context.Context) {
 
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
-		logger.Error("error in loading config", slog.Any("error", err))
+		logger.Error("errs in loading config", slog.Any("errs", err))
 		return
 	}
 
 	DB, err := postgres.New(ctx, cfg.DB.DSN)
+	defer DB.Close()
 	if err != nil {
-		logger.Error("error in connecting to database", slog.Any("error", err))
+		logger.Error("errs in connecting to database", slog.Any("errs", err))
 		return
 	}
 
 	err = postgres.RunMigrations(DB)
 	if err != nil {
-		logger.Error("error in running migrations", slog.Any("error", err))
+		logger.Error("errs in running migrations", slog.Any("errs", err))
+		return
 	}
 
 	repo := repository.New(DB)
@@ -48,14 +49,14 @@ func Run(ctx context.Context) {
 
 	server.RegisterRoutes(handler)
 
-	logger.Info(fmt.Sprintf("app started on port %s", cfg.Server.Port))
-	err = server.Run()
+	err = server.Run(ctx)
+	defer server.Close(ctx)
 	if err != nil {
 		if errors.Is(err, http.ErrServerClosed) {
 			logger.Info("server closed")
 			return
 		}
-		logger.Error("error in running server", slog.Any("error", err))
+		logger.Error("errs in running server", slog.Any("errs", err))
 	}
 
 }

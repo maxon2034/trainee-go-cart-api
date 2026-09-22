@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"time"
+	"syscall"
 
 	"github.com/maxon2034/trainee-go-cart-api/internal/config"
 )
@@ -23,8 +23,8 @@ func New(cfg config.ServerConfig, logger *slog.Logger) *Server {
 	router := http.NewServeMux()
 	server := &http.Server{
 		Addr:         cfg.Port,
-		WriteTimeout: cfg.WriteTimeout * time.Second,
-		ReadTimeout:  cfg.ReadTimeout * time.Second,
+		WriteTimeout: cfg.WriteTimeout,
+		ReadTimeout:  cfg.ReadTimeout,
 		Handler:      router,
 	}
 	return &Server{
@@ -35,14 +35,12 @@ func New(cfg config.ServerConfig, logger *slog.Logger) *Server {
 	}
 }
 
-func (s *Server) Run() error {
+func (s *Server) Run(ctx context.Context) error {
 	// TODO: init server running
 	errsChan := make(chan error, 1)
 
 	go func() {
 		s.logger.Info("starting server", slog.String("port", s.cfg.Port))
-		errsChan <- s.server.ListenAndServe()
-
 		if err := s.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errsChan <- err
 		}
@@ -50,7 +48,7 @@ func (s *Server) Run() error {
 	}()
 
 	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt)
+	signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 
 	select {
 	case <-quit:
@@ -61,7 +59,7 @@ func (s *Server) Run() error {
 }
 
 func (s *Server) Close(ctx context.Context) error {
-	shutdownCtx, cancel := context.WithTimeout(ctx, s.cfg.CtxDefaultTimeout*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(ctx, s.cfg.CtxDefaultTimeout)
 	defer cancel()
 	err := s.server.Shutdown(shutdownCtx)
 	if err != nil {

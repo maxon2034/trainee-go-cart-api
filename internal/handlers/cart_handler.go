@@ -9,11 +9,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	errs "github.com/maxon2034/trainee-go-cart-api/internal/error"
-	"github.com/maxon2034/trainee-go-cart-api/internal/repository"
+	"github.com/maxon2034/trainee-go-cart-api/internal/errs"
 )
-
-var errResp errs.ErrorResponse
 
 type CartHandler struct {
 	service Service
@@ -25,9 +22,6 @@ func NewCartHandler(s Service, l *slog.Logger) *CartHandler {
 }
 
 func (h *CartHandler) Create(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		return
-	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), time.Second*5)
 	defer cancel()
@@ -35,8 +29,8 @@ func (h *CartHandler) Create(w http.ResponseWriter, r *http.Request) {
 	cart, err := h.service.CreateCart(ctx)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write(errResp.InternalServerError())
-		h.logger.Error("error in creating cart", slog.Any("error", err))
+		w.Write(errs.InternalServerError())
+		h.logger.Error("errs in creating cart", slog.Any("errs", err))
 		return
 	}
 
@@ -44,42 +38,38 @@ func (h *CartHandler) Create(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 
 	if err := json.NewEncoder(w).Encode(cart); err != nil {
-		h.logger.Error("error in forming response", slog.Any("error", err))
+		h.logger.Error("errs in forming response", slog.Any("errs", err))
 		return
 	}
 	h.logger.Info("created cart", slog.Any("cart", cart))
 }
 
 func (h *CartHandler) View(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		h.logger.Error("Invalid method")
-		return
-	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), time.Second*5)
 	defer cancel()
 
 	id := r.PathValue("id")
 
-	uuid, err := uuid.Parse(id)
+	cartID, err := uuid.Parse(id)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write(errResp.BadRequest())
-		h.logger.Error("error in parsing uuid", slog.Any("error", err))
+		w.Write(errs.BadRequest())
+		h.logger.Error("errs in parsing uuid", slog.Any("errs", err))
 		return
 	}
 
-	cart, err := h.service.ViewCart(ctx, uuid)
+	cart, err := h.service.ViewCart(ctx, cartID)
 	if err != nil {
-		if errors.Is(err, repository.ErrCartNotFound) {
+		if errors.Is(err, errs.ErrCartNotFound) {
 			w.WriteHeader(http.StatusNotFound)
-			w.Write(errResp.NotFound())
-			h.logger.Info("cart not found", slog.Any("id", uuid.String()))
+			w.Write(errs.NotFound())
+			h.logger.Info("cart not found", slog.Any("id", cartID.String()))
 			return
 		}
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write(errResp.InternalServerError())
-		h.logger.Error("error in viewing cart", slog.Any("error", err))
+		w.Write(errs.InternalServerError())
+		h.logger.Error("errs in viewing cart", slog.Any("errs", err))
 		return
 	}
 
@@ -87,7 +77,7 @@ func (h *CartHandler) View(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 
 	if err := json.NewEncoder(w).Encode(cart); err != nil {
-		h.logger.Error("error in forming response", slog.Any("error", err))
+		h.logger.Error("errs in forming response", slog.Any("errs", err))
 		return
 	}
 	h.logger.Info("viewed cart", slog.Any("cart", cart))
