@@ -102,6 +102,7 @@ func (h *CartHandler) AddItem(w http.ResponseWriter, r *http.Request) {
 
 	if err := json.NewDecoder(r.Body).Decode(&itemRequest); err != nil {
 		h.logger.Error("error in parsing request", slog.Any("error", err))
+		w.WriteHeader(http.StatusBadRequest)
 		w.Write(errs.BadRequest())
 		return
 	}
@@ -119,6 +120,17 @@ func (h *CartHandler) AddItem(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write(errs.FullCart())
 			h.logger.Info("cart full", slog.Any("id", cartUUID.String()))
+			return
+		}
+		if errors.Is(err, errs.ErrNegativePrice) {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write(errs.NegativePrice())
+			return
+		}
+
+		if errors.Is(err, errs.ErrEmptyProduct) {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write(errs.EmptyProduct())
 			return
 		}
 		w.WriteHeader(http.StatusInternalServerError)

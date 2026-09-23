@@ -43,3 +43,17 @@ func FullCart() []byte {
 		Message: "Unable to add item to cart. Cart is full",
 	}.ToBytes()
 }
+
+func NegativePrice() []byte {
+	return ErrorResponse{
+		Error:   "NEGATIVE_PRICE",
+		Message: "Unable to add item to cart. Price can't be negative",
+	}.ToBytes()
+}
+
+func EmptyProduct() []byte {
+	return ErrorResponse{
+		Error:   "EMPTY_PRODUCT",
+		Message: "Product can't be empty",
+	}.ToBytes()
+}

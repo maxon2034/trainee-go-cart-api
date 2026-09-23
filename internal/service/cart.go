@@ -39,6 +39,12 @@ func (s *CartService) AddItem(ctx context.Context, cartId uuid.UUID, product str
 		if errors.Is(err, errs.ErrFullCart) {
 			return CartItemDTO{}, errs.ErrFullCart
 		}
+		if errors.Is(err, errs.ErrEmptyProduct) {
+			return CartItemDTO{}, errs.ErrEmptyProduct
+		}
+		if errors.Is(err, errs.ErrNegativePrice) {
+			return CartItemDTO{}, errs.ErrNegativePrice
+		}
 		return CartItemDTO{}, fmt.Errorf("s.AddItem: %w", err)
 	}
 

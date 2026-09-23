@@ -55,7 +55,14 @@ func (r *CartRepository) GetCart(ctx context.Context, id uuid.UUID) (*entity.Car
 	}
 	return &cart, nil
 }
+
 func (r *CartRepository) AddCartItem(ctx context.Context, cartID uuid.UUID, product string, price float64) (*entity.CartItem, error) {
+	if product == "" {
+		return nil, errs.ErrEmptyProduct
+	}
+	if price < 0 {
+		return nil, errs.ErrNegativePrice
+	}
 	var count int
 	var cartItemDBO CartItemDBO
 	var cartItem entity.CartItem

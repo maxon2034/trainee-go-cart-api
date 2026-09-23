@@ -7,6 +7,8 @@ import (
 	"github.com/maxon2034/trainee-go-cart-api/internal/entity"
 )
 
+//go:generate mockgen -source=repository.go -destination=../../mocks/mock_repository.go -package=mocks Repository
+
 type Repository interface {
 	AddCart(ctx context.Context) (*entity.Cart, error)
 	// TODO: Rename Cart DTO

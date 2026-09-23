@@ -7,6 +7,8 @@ import (
 	"github.com/maxon2034/trainee-go-cart-api/internal/service"
 )
 
+//go:generate mockgen -source=service.go -destination=../../mocks/mock_service.go -package=mocks Service
+
 type Service interface {
 	CreateCart(ctx context.Context) (service.CartDTO, error)
 	ViewCart(ctx context.Context, id uuid.UUID) (service.CartDTO, error)

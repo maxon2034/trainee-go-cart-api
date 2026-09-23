@@ -3,11 +3,14 @@ module github.com/maxon2034/trainee-go-cart-api
 go 1.26.0
 
 require (
+	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/pressly/goose/v3 v3.28.0
 	github.com/spf13/viper v1.21.0
+	github.com/stretchr/testify v1.12.1
+	go.uber.org/mock v0.6.0
 )
 
 require (
