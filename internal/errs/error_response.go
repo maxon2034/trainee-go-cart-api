@@ -29,6 +29,20 @@ func BadRequest() []byte {
 	}.ToBytes()
 }
 
+func BadCartRequest() []byte {
+	return ErrorResponse{
+		Error:   "BAD_CART_REQUEST",
+		Message: "Cart requested was bad request",
+	}.ToBytes()
+}
+
+func BadItemRequest() []byte {
+	return ErrorResponse{
+		Error:   "BAD_ITEM_REQUEST",
+		Message: "Item requested was bad request",
+	}.ToBytes()
+}
+
 func InternalServerError() []byte {
 
 	return ErrorResponse{

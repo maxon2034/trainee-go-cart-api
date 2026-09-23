@@ -55,9 +55,24 @@ func (s *CartService) AddItem(ctx context.Context, cartId uuid.UUID, product str
 	return cartItemDTO, nil
 }
 
-func (s *CartService) UpdateItem() {
-	//TODO implement me
-	panic("implement me")
+func (s *CartService) UpdateCartItem(ctx context.Context, ID uuid.UUID, newProduct string, newPrice float64) (CartItemDTO, error) {
+	cartItem, err := s.repo.UpdateCartItem(ctx, ID, newProduct, newPrice)
+	if err != nil {
+		if errors.Is(err, errs.ErrCartItemNotFound) {
+			return CartItemDTO{}, errs.ErrCartItemNotFound
+		}
+		if errors.Is(err, errs.ErrEmptyProduct) {
+			return CartItemDTO{}, errs.ErrEmptyProduct
+		}
+		if errors.Is(err, errs.ErrNegativePrice) {
+			return CartItemDTO{}, errs.ErrNegativePrice
+		}
+		return CartItemDTO{}, fmt.Errorf("s.UpdateItem: %w", err)
+	}
+
+	cartItemDTO := ItemToDTO(cartItem)
+
+	return cartItemDTO, nil
 }
 
 func (s *CartService) RemoveItem() {

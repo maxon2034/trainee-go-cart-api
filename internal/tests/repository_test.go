@@ -302,3 +302,157 @@ func TestCartRepository_AddCartItem(t *testing.T) {
 		assert.NoError(t, mock.ExpectationsWereMet())
 	})
 }
+
+func TestCartRepository_UpdateCartItem(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		mockDB, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer mockDB.Close()
+
+		sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
+		repo := repository.New(sqlxDB)
+
+		itemID := uuid.New()
+		cartID := uuid.New()
+		oldProduct := "Old Shoes"
+		oldPrice := float64(1000.00)
+
+		newProduct := "Shoes"
+		newPrice := float64(5000.50)
+
+		// 1. Ожидаем SELECT по ID товара
+		mock.ExpectQuery(`SELECT cart_id,id,product,price FROM cart_items WHERE id=\$1`).
+			WithArgs(itemID).
+			WillReturnRows(sqlmock.NewRows([]string{"cart_id", "id", "product", "price"}).
+				AddRow(cartID, itemID, oldProduct, oldPrice))
+
+		// 2. Ожидаем UPDATE: SET product=$1, price=$2 WHERE id=$3 RETURNING...
+		// Аргументы в порядке $1, $2, $3: newProduct, newPrice, itemID
+		mock.ExpectQuery(`UPDATE cart_items SET product=\$1, price=\$2 WHERE id=\$3 RETURNING id,cart_id,product,price`).
+			WithArgs(newProduct, newPrice, itemID).
+			WillReturnRows(sqlmock.NewRows([]string{"id", "cart_id", "product", "price"}).
+				AddRow(itemID, cartID, newProduct, newPrice))
+
+		item, err := repo.UpdateCartItem(context.Background(), itemID, newProduct, newPrice)
+
+		require.NoError(t, err)
+		require.NotNil(t, item)
+		assert.Equal(t, itemID, item.ID)
+		assert.Equal(t, cartID, item.CartID)
+		assert.Equal(t, newProduct, item.Product)
+		assert.Equal(t, newPrice, item.Price)
+
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("should fail if product does not exist (item not found in DB)", func(t *testing.T) {
+		mockDB, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer mockDB.Close()
+
+		sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
+		repo := repository.New(sqlxDB)
+
+		nonExistentID := uuid.New()
+
+		// SELECT возвращает sql.ErrNoRows
+		mock.ExpectQuery(`SELECT cart_id,id,product,price FROM cart_items WHERE id=\$1`).
+			WithArgs(nonExistentID).
+			WillReturnError(sql.ErrNoRows)
+
+		item, err := repo.UpdateCartItem(context.Background(), nonExistentID, "Shoes", 5000.50)
+
+		require.Error(t, err)
+		assert.Nil(t, item)
+		assert.ErrorIs(t, err, errs.ErrCartItemNotFound)
+
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("should fail if fetched item has negative price in DB", func(t *testing.T) {
+		mockDB, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer mockDB.Close()
+
+		sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
+		repo := repository.New(sqlxDB)
+
+		itemID := uuid.New()
+		cartID := uuid.New()
+
+		// Возвращаем из БД запись с отрицательной ценой
+		mock.ExpectQuery(`SELECT cart_id,id,product,price FROM cart_items WHERE id=\$1`).
+			WithArgs(itemID).
+			WillReturnRows(sqlmock.NewRows([]string{"cart_id", "id", "product", "price"}).
+				AddRow(cartID, itemID, "Broken Product", -10.00))
+
+		item, err := repo.UpdateCartItem(context.Background(), itemID, "Shoes", 5000.50)
+
+		require.Error(t, err)
+		assert.Nil(t, item)
+		assert.ErrorIs(t, err, errs.ErrNegativePrice)
+
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("should fail if fetched item product name is blank in DB", func(t *testing.T) {
+		mockDB, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer mockDB.Close()
+
+		sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
+		repo := repository.New(sqlxDB)
+
+		itemID := uuid.New()
+		cartID := uuid.New()
+
+		// Возвращаем из БД запись с пустым наименованием
+		mock.ExpectQuery(`SELECT cart_id,id,product,price FROM cart_items WHERE id=\$1`).
+			WithArgs(itemID).
+			WillReturnRows(sqlmock.NewRows([]string{"cart_id", "id", "product", "price"}).
+				AddRow(cartID, itemID, "", 100.00))
+
+		item, err := repo.UpdateCartItem(context.Background(), itemID, "Shoes", 5000.50)
+
+		require.Error(t, err)
+		assert.Nil(t, item)
+		assert.ErrorIs(t, err, errs.ErrEmptyProduct)
+
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("db error - UPDATE query failed", func(t *testing.T) {
+		mockDB, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer mockDB.Close()
+
+		sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
+		repo := repository.New(sqlxDB)
+
+		itemID := uuid.New()
+		cartID := uuid.New()
+		newProduct := "Shoes"
+		newPrice := float64(5000.50)
+		expectedErr := errors.New("db update failure")
+
+		// 1. SELECT проходит
+		mock.ExpectQuery(`SELECT cart_id,id,product,price FROM cart_items WHERE id=\$1`).
+			WithArgs(itemID).
+			WillReturnRows(sqlmock.NewRows([]string{"cart_id", "id", "product", "price"}).
+				AddRow(cartID, itemID, "Old Product", 100.00))
+
+		// 2. UPDATE отдает ошибку
+		// Аргументы в порядке $1, $2, $3: newProduct, newPrice, itemID
+		mock.ExpectQuery(`UPDATE cart_items SET product=\$1, price=\$2 WHERE id=\$3 RETURNING id,cart_id,product,price`).
+			WithArgs(newProduct, newPrice, itemID).
+			WillReturnError(expectedErr)
+
+		item, err := repo.UpdateCartItem(context.Background(), itemID, newProduct, newPrice)
+
+		require.Error(t, err)
+		assert.Nil(t, item)
+		assert.ErrorIs(t, err, expectedErr)
+
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
+}

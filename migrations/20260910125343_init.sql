@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS carts (
 CREATE TABLE IF NOT EXISTS cart_items (
                                           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                                           cart_id UUID NOT NULL,
-                                          product VARCHAR(255) NOT NULL,
+                                          product VARCHAR(255) NOT NULL UNIQUE,
     price NUMERIC(10, 2) NOT NULL CHECK (price >= 0),
     CONSTRAINT fk_cart_items_cart
     FOREIGN KEY (cart_id)
