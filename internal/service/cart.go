@@ -75,12 +75,12 @@ func (s *CartService) UpdateCartItem(ctx context.Context, ID uuid.UUID, newProdu
 	return cartItemDTO, nil
 }
 
-func (s *CartService) RemoveItem() {
-	//TODO implement me
-	panic("implement me")
-}
+//func (s *CartService) RemoveItem() {
+//	//TODO implement me
+//	panic("implement me")
+//}
 
-func (s *CartService) CalculatePrice() {
-	//TODO implement me
-	panic("implement me")
-}
+//func (s *CartService) CalculatePrice() {
+//	//TODO implement me
+//	panic("implement me")
+//}

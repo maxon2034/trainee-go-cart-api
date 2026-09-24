@@ -31,7 +31,7 @@ func (h *CartHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write(errs.InternalServerError())
-		h.logger.Error("errs in creating cart", slog.Any("errs", err))
+		h.logger.Error("error in creating cart", slog.Any("error", err))
 		return
 	}
 
@@ -39,7 +39,7 @@ func (h *CartHandler) Create(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 
 	if err := json.NewEncoder(w).Encode(cart); err != nil {
-		h.logger.Error("errs in forming response", slog.Any("errs", err))
+		h.logger.Error("error in forming response", slog.Any("error", err))
 		return
 	}
 	h.logger.Info("created cart", slog.Any("cart", cart))
@@ -56,7 +56,7 @@ func (h *CartHandler) View(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write(errs.BadCartRequest())
-		h.logger.Error("errs in parsing uuid", slog.Any("errs", err))
+		h.logger.Error("error in parsing uuid", slog.Any("error", err))
 		return
 	}
 
@@ -70,7 +70,7 @@ func (h *CartHandler) View(w http.ResponseWriter, r *http.Request) {
 		}
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write(errs.InternalServerError())
-		h.logger.Error("errs in viewing cart", slog.Any("errs", err))
+		h.logger.Error("error in viewing cart", slog.Any("error", err))
 		return
 	}
 
@@ -78,7 +78,7 @@ func (h *CartHandler) View(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 
 	if err := json.NewEncoder(w).Encode(cart); err != nil {
-		h.logger.Error("errs in forming response", slog.Any("errs", err))
+		h.logger.Error("error in forming response", slog.Any("error", err))
 		return
 	}
 	h.logger.Info("viewed cart", slog.Any("cart", cart))

@@ -15,5 +15,5 @@ type Repository interface {
 	GetCart(ctx context.Context, id uuid.UUID) (*entity.Cart, error)
 	AddCartItem(ctx context.Context, cartId uuid.UUID, product string, price float64) (*entity.CartItem, error)
 	UpdateCartItem(ctx context.Context, ID uuid.UUID, newProduct string, newPrice float64) (*entity.CartItem, error)
-	RemoveCartItem(ctx context.Context, cartID, itemID string) error
+	//RemoveCartItem(ctx context.Context, cartID, itemID string) error
 }

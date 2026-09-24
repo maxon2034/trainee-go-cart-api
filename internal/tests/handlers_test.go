@@ -339,7 +339,7 @@ func TestCartHandler_UpdateItem(t *testing.T) {
 			body: `{"product": "Shoes", "price": 5000.50}`,
 			buildStubs: func(ms *mocks.MockService) {
 				ms.EXPECT().
-					AddItem(gomock.Any(), itemID, "Shoes", 5000.50).
+					UpdateCartItem(gomock.Any(), itemID, "Shoes", 5000.50).
 					Return(service.CartItemDTO{
 						ID:      itemID,
 						CartID:  cartID,
@@ -401,7 +401,7 @@ func TestCartHandler_UpdateItem(t *testing.T) {
 			body: `{"product": "Shoes", "price": 5000.50}`,
 			buildStubs: func(ms *mocks.MockService) {
 				ms.EXPECT().
-					AddItem(gomock.Any(), itemID, "Shoes", 5000.50).
+					UpdateCartItem(gomock.Any(), itemID, "Shoes", 5000.50).
 					Return(service.CartItemDTO{}, errs.ErrCartItemNotFound).
 					Times(1)
 			},
@@ -418,7 +418,7 @@ func TestCartHandler_UpdateItem(t *testing.T) {
 			body: `{"product": "", "price": 5000.50}`,
 			buildStubs: func(ms *mocks.MockService) {
 				ms.EXPECT().
-					AddItem(gomock.Any(), itemID, "", 5000.50).
+					UpdateCartItem(gomock.Any(), itemID, "", 5000.50).
 					Return(service.CartItemDTO{}, errs.ErrEmptyProduct).
 					Times(1)
 			},
@@ -435,7 +435,7 @@ func TestCartHandler_UpdateItem(t *testing.T) {
 			body: `{"product": "Shoes", "price": -100.0}`,
 			buildStubs: func(ms *mocks.MockService) {
 				ms.EXPECT().
-					AddItem(gomock.Any(), itemID, "Shoes", -100.0).
+					UpdateCartItem(gomock.Any(), itemID, "Shoes", -100.0).
 					Return(service.CartItemDTO{}, errs.ErrNegativePrice).
 					Times(1)
 			},
@@ -452,7 +452,7 @@ func TestCartHandler_UpdateItem(t *testing.T) {
 			body: `{"product": "Shoes", "price": 5000.50}`,
 			buildStubs: func(ms *mocks.MockService) {
 				ms.EXPECT().
-					AddItem(gomock.Any(), itemID, "Shoes", 5000.50).
+					UpdateCartItem(gomock.Any(), itemID, "Shoes", 5000.50).
 					Return(service.CartItemDTO{}, errors.New("db connection failure")).
 					Times(1)
 			},

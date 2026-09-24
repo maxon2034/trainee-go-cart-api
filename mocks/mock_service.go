@@ -57,18 +57,6 @@ func (mr *MockServiceMockRecorder) AddItem(ctx, cartId, product, price any) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddItem", reflect.TypeOf((*MockService)(nil).AddItem), ctx, cartId, product, price)
 }
 
-// CalculatePrice mocks base method.
-func (m *MockService) CalculatePrice() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "CalculatePrice")
-}
-
-// CalculatePrice indicates an expected call of CalculatePrice.
-func (mr *MockServiceMockRecorder) CalculatePrice() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CalculatePrice", reflect.TypeOf((*MockService)(nil).CalculatePrice))
-}
-
 // CreateCart mocks base method.
 func (m *MockService) CreateCart(ctx context.Context) (service.CartDTO, error) {
 	m.ctrl.T.Helper()
@@ -84,28 +72,19 @@ func (mr *MockServiceMockRecorder) CreateCart(ctx any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateCart", reflect.TypeOf((*MockService)(nil).CreateCart), ctx)
 }
 
-// RemoveItem mocks base method.
-func (m *MockService) RemoveItem() {
+// UpdateCartItem mocks base method.
+func (m *MockService) UpdateCartItem(ctx context.Context, ID uuid.UUID, newProduct string, newPrice float64) (service.CartItemDTO, error) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "RemoveItem")
+	ret := m.ctrl.Call(m, "UpdateCartItem", ctx, ID, newProduct, newPrice)
+	ret0, _ := ret[0].(service.CartItemDTO)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-// RemoveItem indicates an expected call of RemoveItem.
-func (mr *MockServiceMockRecorder) RemoveItem() *gomock.Call {
+// UpdateCartItem indicates an expected call of UpdateCartItem.
+func (mr *MockServiceMockRecorder) UpdateCartItem(ctx, ID, newProduct, newPrice any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveItem", reflect.TypeOf((*MockService)(nil).RemoveItem))
-}
-
-// UpdateItem mocks base method.
-func (m *MockService) UpdateItem() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "UpdateItem")
-}
-
-// UpdateItem indicates an expected call of UpdateItem.
-func (mr *MockServiceMockRecorder) UpdateItem() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateItem", reflect.TypeOf((*MockService)(nil).UpdateItem))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCartItem", reflect.TypeOf((*MockService)(nil).UpdateCartItem), ctx, ID, newProduct, newPrice)
 }
 
 // ViewCart mocks base method.

@@ -11,6 +11,7 @@ import (
 type Config struct {
 	Server ServerConfig `mapstructure:"server"`
 	DB     DBConfig     `mapstructure:"db"`
+	Logger LoggerConfig `mapstructure:"logger"`
 }
 
 type ServerConfig struct {
@@ -28,6 +29,10 @@ type DBConfig struct {
 	Name     string `mapstructure:"name"`
 	SSLMode  string `mapstructure:"sslmode"`
 	DSN      string `mapstructure:"dsn"`
+}
+
+type LoggerConfig struct {
+	Level string `mapstructure:"level"`
 }
 
 func Load(path string) (Config, error) {

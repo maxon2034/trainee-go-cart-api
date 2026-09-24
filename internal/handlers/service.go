@@ -14,6 +14,6 @@ type Service interface {
 	ViewCart(ctx context.Context, id uuid.UUID) (service.CartDTO, error)
 	AddItem(ctx context.Context, cartId uuid.UUID, product string, price float64) (service.CartItemDTO, error)
 	UpdateCartItem(ctx context.Context, ID uuid.UUID, newProduct string, newPrice float64) (service.CartItemDTO, error)
-	RemoveItem()
-	CalculatePrice()
+	//RemoveItem()
+	//CalculatePrice()
 }

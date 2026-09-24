@@ -5,7 +5,6 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"os"
 	"os/signal"
 	"syscall"
 
@@ -36,7 +35,6 @@ func New(cfg config.ServerConfig, logger *slog.Logger) *Server {
 }
 
 func (s *Server) Run(ctx context.Context) error {
-	// TODO: init server running
 	errsChan := make(chan error, 1)
 
 	go func() {
@@ -47,11 +45,11 @@ func (s *Server) Run(ctx context.Context) error {
 		close(errsChan)
 	}()
 
-	quit := make(chan os.Signal, 1)
-	signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+	ctx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
 	select {
-	case <-quit:
+	case <-ctx.Done():
 		return nil
 	case err := <-errsChan:
 		return err

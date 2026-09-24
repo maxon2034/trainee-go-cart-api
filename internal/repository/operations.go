@@ -125,6 +125,6 @@ RETURNING id,cart_id,product,price`
 	return &cartItem, nil
 }
 
-func (r *CartRepository) RemoveCartItem(ctx context.Context, cartID, itemID string) error {
-	return errors.New("not implemented")
-}
+//func (r *CartRepository) RemoveCartItem(ctx context.Context, cartID, itemID string) error {
+//	return errors.New("not implemented")
+//}

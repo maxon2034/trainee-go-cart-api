@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"log"
 	"log/slog"
 	"net/http"
 
@@ -18,24 +19,28 @@ import (
 var cfgPath string = "config/"
 
 func Run(ctx context.Context) {
-	logger := logger.New()
-
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
-		logger.Error("errs in loading config", slog.Any("errs", err))
+		log.Print("error in loading config", slog.Any("error", err))
+		return
+	}
+
+	logger, err := logger.New(cfg)
+	if err != nil {
+		log.Print("error in initializing logger", slog.Any("error", err))
 		return
 	}
 
 	DB, err := postgres.New(ctx, cfg.DB.DSN)
-	defer DB.Close()
 	if err != nil {
-		logger.Error("errs in connecting to database", slog.Any("errs", err))
+		logger.Error("error in connecting to database", slog.Any("error", err))
 		return
 	}
+	defer DB.Close()
 
 	err = postgres.RunMigrations(DB)
 	if err != nil {
-		logger.Error("errs in running migrations", slog.Any("errs", err))
+		logger.Error("error in running migrations", slog.Any("error", err))
 		return
 	}
 
@@ -46,11 +51,11 @@ func Run(ctx context.Context) {
 	handler := handlers.NewCartHandler(service, logger)
 
 	server := server.New(cfg.Server, logger)
-
 	server.RegisterRoutes(handler)
+	defer server.Close(ctx)
 
 	err = server.Run(ctx)
-	defer server.Close(ctx)
+
 	if err != nil {
 		if errors.Is(err, http.ErrServerClosed) {
 			logger.Info("server closed")

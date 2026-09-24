@@ -11,3 +11,5 @@ db:
   password: ""
   sslmode: "disable"
   dsn: ""
+logger:
+  level: "info"
