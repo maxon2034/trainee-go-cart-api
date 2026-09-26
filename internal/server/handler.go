@@ -1,0 +1,12 @@
+package server
+
+import "net/http"
+
+type Handler interface {
+	View(http.ResponseWriter, *http.Request)
+	Create(http.ResponseWriter, *http.Request)
+	AddItem(http.ResponseWriter, *http.Request)
+	UpdateItem(http.ResponseWriter, *http.Request)
+	//Calculate(http.ResponseWriter, *http.Request)
+	//Delete(http.ResponseWriter, *http.Request)
+}

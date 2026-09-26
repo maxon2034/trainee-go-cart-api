@@ -1,0 +1,15 @@
+server:
+  port: ":8080"
+  read_timeout: 5s
+  write_timeout: 5s
+  ctx_default_timeout: 5s
+db:
+  host: "localhost"
+  port: 5432
+  user: "cart_user"
+  name: "cart_db"
+  password: ""
+  sslmode: "disable"
+  dsn: ""
+logger:
+  level: "info"
