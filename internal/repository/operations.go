@@ -26,12 +26,13 @@ func (r *CartRepository) AddCart(ctx context.Context) (*entity.Cart, error) {
 	return &cart, nil
 }
 
-func (r *CartRepository) GetCart(ctx context.Context, id uuid.UUID) (*entity.Cart, error) {
+func (r *CartRepository) GetCart(ctx context.Context, cartID uuid.UUID) (*entity.Cart, error) {
 	var cart entity.Cart
 	var cartDBO CartDBO
 	var cartItemsDBO []CartItemDBO
+
 	q := `SELECT id FROM carts WHERE id = $1`
-	err := r.db.GetContext(ctx, &cartDBO.ID, q, id)
+	err := r.db.GetContext(ctx, &cartDBO.ID, q, cartID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, errs.ErrCartNotFound
@@ -41,8 +42,7 @@ func (r *CartRepository) GetCart(ctx context.Context, id uuid.UUID) (*entity.Car
 	cart.ID = cartDBO.ID
 
 	q = `SELECT id,product,price FROM cart_items WHERE cart_id=$1`
-
-	if err := r.db.SelectContext(ctx, &cartItemsDBO, q, id); err != nil {
+	if err := r.db.SelectContext(ctx, &cartItemsDBO, q, cartID); err != nil {
 		return nil, fmt.Errorf("r.GetCart: %w", err)
 	}
 	for _, item := range cartItemsDBO {
@@ -63,11 +63,21 @@ func (r *CartRepository) AddCartItem(ctx context.Context, cartID uuid.UUID, prod
 	if price < 0 {
 		return nil, errs.ErrNegativePrice
 	}
+
+	var exists bool
+	q := `SELECT EXISTS(SELECT 1 FROM carts WHERE id = $1)`
+	err := r.db.GetContext(ctx, &exists, q, cartID)
+	if err != nil {
+		return nil, fmt.Errorf("r.RemoveCartItem: %w", err)
+	}
+	if !exists {
+		return nil, errs.ErrCartNotFound
+	}
+
 	var count int
 	var cartItemDBO CartItemDBO
 	var cartItem entity.CartItem
-	q := `SELECT COUNT(*) FROM cart_items WHERE cart_id=$1`
-
+	q = `SELECT COUNT(*) FROM cart_items WHERE cart_id=$1`
 	if err := r.db.GetContext(ctx, &count, q, cartID); err != nil {
 		return nil, fmt.Errorf("r.AddCartItem: %w", err)
 	}
@@ -81,20 +91,31 @@ RETURNING id,cart_id, product, price`
 	if err := r.db.GetContext(ctx, &cartItemDBO, q, cartID, product, price); err != nil {
 		return nil, fmt.Errorf("r.AddCartItem: %w", err)
 	}
+
 	cartItem.CartID = cartItemDBO.CartID
 	cartItem.ID = cartItemDBO.ID
 	cartItem.Product = cartItemDBO.Product
 	cartItem.Price = cartItemDBO.Price
 
-	fmt.Println(cartItemDBO)
 	return &cartItem, nil
 }
-func (r *CartRepository) UpdateCartItem(ctx context.Context, ID uuid.UUID, newProduct string, newPrice float64) (*entity.CartItem, error) {
+
+func (r *CartRepository) UpdateCartItem(ctx context.Context, cartID, itemID uuid.UUID, newProduct string, newPrice float64) (*entity.CartItem, error) {
 	var cartItemDBO CartItemDBO
 	var cartItem entity.CartItem
 
-	q := `SELECT cart_id,id,product,price FROM cart_items WHERE id=$1`
-	err := r.db.GetContext(ctx, &cartItemDBO, q, ID)
+	var exists bool
+	q := `SELECT EXISTS(SELECT 1 FROM carts WHERE id = $1)`
+	err := r.db.GetContext(ctx, &exists, q, cartID)
+	if err != nil {
+		return nil, fmt.Errorf("r.RemoveCartItem: %w", err)
+	}
+	if !exists {
+		return nil, errs.ErrCartNotFound
+	}
+
+	q = `SELECT cart_id,id,product,price FROM cart_items WHERE id=$1 AND cart_id=$2`
+	err = r.db.GetContext(ctx, &cartItemDBO, q, itemID, cartID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, errs.ErrCartItemNotFound
@@ -125,6 +146,78 @@ RETURNING id,cart_id,product,price`
 	return &cartItem, nil
 }
 
-//func (r *CartRepository) RemoveCartItem(ctx context.Context, cartID, itemID string) error {
-//	return errors.New("not implemented")
-//}
+func (r *CartRepository) RemoveCartItem(ctx context.Context, cartID, itemID uuid.UUID) error {
+	var exists bool
+	q := `SELECT EXISTS(SELECT 1 FROM carts WHERE id = $1)`
+	err := r.db.GetContext(ctx, &exists, q, cartID)
+	if err != nil {
+		return fmt.Errorf("r.RemoveCartItem: %w", err)
+	}
+	if !exists {
+		return errs.ErrCartNotFound
+	}
+
+	q = `DELETE FROM cart_items WHERE id=$1 AND cart_id=$2`
+	res, err := r.db.ExecContext(ctx, q, itemID, cartID)
+	if err != nil {
+		return fmt.Errorf("r.RemoveCartItem: %w", err)
+	}
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("r.RemoveCartItem: %w", err)
+	}
+	if rowsAffected == 0 {
+		return errs.ErrCartItemNotFound
+	}
+
+	return nil
+}
+
+func (r *CartRepository) CalculateDiscount(ctx context.Context, cartID uuid.UUID) (*entity.CartDiscount, error) {
+	var cartDiscount entity.CartDiscount
+	var prices []float64
+	var totalPrice float64
+	var discount float64
+
+	var exists bool
+	q := `SELECT EXISTS(SELECT 1 FROM carts WHERE id = $1)`
+	err := r.db.GetContext(ctx, &exists, q, cartID)
+	if err != nil {
+		return nil, fmt.Errorf("r.RemoveCartItem: %w", err)
+	}
+	if !exists {
+		return nil, errs.ErrCartNotFound
+	}
+
+	q = `SELECT price FROM cart_items WHERE cart_id=$1`
+	err = r.db.SelectContext(ctx, &prices, q, cartID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return &entity.CartDiscount{
+				CartID:          cartID,
+				TotalPrice:      0,
+				DiscountPercent: 0,
+				FinalPrice:      0}, nil
+		}
+		return nil, fmt.Errorf("r.RemoveCartItem: %w", err)
+	}
+
+	for _, v := range prices {
+		totalPrice += v
+	}
+
+	discount = 0
+	if totalPrice > 5000 && len(prices) > 3 || totalPrice > 5000 {
+		discount = 0.1
+	}
+	if len(prices) > 3 {
+		discount = 0.05
+	}
+
+	cartDiscount.CartID = cartID
+	cartDiscount.TotalPrice = totalPrice
+	cartDiscount.DiscountPercent = discount
+	cartDiscount.FinalPrice = totalPrice - (totalPrice * discount)
+
+	return &cartDiscount, nil
+}
