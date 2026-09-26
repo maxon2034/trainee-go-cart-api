@@ -7,9 +7,9 @@ DB_PORT = 5432
 DB_NAME = cart_db
 # DB_PASSWORD must be environmental variable
 
-POSTGRES_DSN = postgres://${DB_USER}:${DB_PASSWORD}@${DB_ADDR}:${DB_PORT}/${DB_NAME}?sslmode=disable
+POSTGRES_DSN = postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_ADDR):$(DB_PORT)/$(DB_NAME)?sslmode=disable
 
-.PHONY: run
+.PHONY: run build test test-integration lint generate migration-up migration-down
 
 generate:
 	go generate ./...
@@ -22,14 +22,17 @@ migration-down:
 
 build:
 	@echo "building app"
-	go build -o ${BUILD_DIR}/${APP_NAME} ./cmd
+	go build -o $(BUILD_DIR)/$(APP_NAME) ./cmd
 
 run: build
-	@echo "running ${APP_NAME}"
-	./$BUILD_DIR/$APP_NAME
+	@echo "running $(APP_NAME)"
+	./$(BUILD_DIR)/$(APP_NAME)
 
-test: generate
-	go test ./internal/tests
+test:
+	go test ./...
+
+test-integration:
+	go test -tags=integration ./...
 
 lint:
 	golangci-lint run
