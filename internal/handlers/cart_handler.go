@@ -50,7 +50,7 @@ func (h *CartHandler) View(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), time.Second*5)
 	defer cancel()
 
-	id := r.PathValue("id")
+	id := r.PathValue("cart_id")
 
 	cartID, err := uuid.Parse(id)
 	if err != nil {
@@ -155,8 +155,8 @@ func (h *CartHandler) UpdateItem(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), time.Second*5)
 	defer cancel()
 
-	cartId := r.PathValue("cart_id")
-	cartUUID, err := uuid.Parse(cartId)
+	cartID := r.PathValue("cart_id")
+	cartUUID, err := uuid.Parse(cartID)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write(errs.BadCartRequest())
@@ -164,7 +164,7 @@ func (h *CartHandler) UpdateItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cartItemID := r.PathValue("id")
+	cartItemID := r.PathValue("item_id")
 	cartItemUUID, err := uuid.Parse(cartItemID)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -181,11 +181,17 @@ func (h *CartHandler) UpdateItem(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	cartItemDTO, err := h.service.UpdateCartItem(ctx, cartItemUUID, itemRequest.Product, itemRequest.Price)
+	cartItemDTO, err := h.service.UpdateCartItem(ctx, cartUUID, cartItemUUID, itemRequest.Product, itemRequest.Price)
 	if err != nil {
 		if errors.Is(err, errs.ErrCartItemNotFound) {
 			w.WriteHeader(http.StatusNotFound)
 			w.Write(errs.ItemNotFound())
+			h.logger.Info("cart not found", slog.Any("id", cartUUID.String()))
+			return
+		}
+		if errors.Is(err, errs.ErrCartNotFound) {
+			w.WriteHeader(http.StatusNotFound)
+			w.Write(errs.CartNotFound())
 			h.logger.Info("cart not found", slog.Any("id", cartUUID.String()))
 			return
 		}
@@ -201,6 +207,7 @@ func (h *CartHandler) UpdateItem(w http.ResponseWriter, r *http.Request) {
 		}
 		w.WriteHeader(http.StatusInternalServerError)
 		h.logger.Error("error in adding item", slog.Any("error", err))
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -227,7 +234,7 @@ func (h *CartHandler) DeleteItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cartItemID := r.PathValue("id")
+	cartItemID := r.PathValue("item_id")
 	cartItemUUID, err := uuid.Parse(cartItemID)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)

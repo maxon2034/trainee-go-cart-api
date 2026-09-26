@@ -11,9 +11,9 @@ import (
 
 type Service interface {
 	CreateCart(ctx context.Context) (service.CartDTO, error)
-	ViewCart(ctx context.Context, id uuid.UUID) (service.CartDTO, error)
+	ViewCart(ctx context.Context, cartID uuid.UUID) (service.CartDTO, error)
 	AddItem(ctx context.Context, cartID uuid.UUID, product string, price float64) (service.CartItemDTO, error)
-	UpdateCartItem(ctx context.Context, ID uuid.UUID, newProduct string, newPrice float64) (service.CartItemDTO, error)
-	RemoveItem(ctx context.Context, itemID uuid.UUID) error
+	UpdateCartItem(ctx context.Context, cartID, itemID uuid.UUID, newProduct string, newPrice float64) (service.CartItemDTO, error)
+	RemoveItem(ctx context.Context, cartID, itemID uuid.UUID) error
 	//CalculatePrice()
 }

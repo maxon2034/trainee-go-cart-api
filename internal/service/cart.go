@@ -50,8 +50,6 @@ func (s *CartService) AddItem(ctx context.Context, cartID uuid.UUID, product str
 
 	cartItemDTO := ItemToDTO(cartItem)
 
-	fmt.Println(cartItemDTO)
-
 	return cartItemDTO, nil
 }
 

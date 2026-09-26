@@ -69,8 +69,9 @@ func (s *Server) Close(ctx context.Context) error {
 
 func (s *Server) RegisterRoutes(h Handler) *Server {
 	s.router.HandleFunc("POST /api/v1/carts", h.Create)
-	s.router.HandleFunc("GET /api/v1/carts/{id}", h.View)
+	s.router.HandleFunc("GET /api/v1/carts/{cart_id}", h.View)
 	s.router.HandleFunc("POST /api/v1/carts/{cart_id}/items", h.AddItem)
-	s.router.HandleFunc("PUT /api/v1/carts/{cart_id}/items/{id}", h.UpdateItem)
+	s.router.HandleFunc("PUT /api/v1/carts/{cart_id}/items/{item_id}", h.UpdateItem)
+	s.router.HandleFunc("DELETE /api/v1/carts/{cart_id}/items/{item_id}", h.DeleteItem)
 	return s
 }
