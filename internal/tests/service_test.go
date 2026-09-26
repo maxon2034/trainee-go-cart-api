@@ -538,6 +538,33 @@ func TestCartService_CalculatePrice(t *testing.T) {
 		assert.Equal(t, expectedDiscount, res)
 	})
 
+	t.Run("success - empty cart returns zero discount structure", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		mockRepo := mocks.NewMockRepository(ctrl)
+		cartService := service.New(mockRepo)
+
+		cartID := uuid.New()
+		expectedDiscount := &entity.CartDiscount{
+			CartID:          cartID,
+			TotalPrice:      0,
+			DiscountPercent: 0,
+			FinalPrice:      0,
+		}
+
+		mockRepo.EXPECT().
+			CalculateDiscount(gomock.Any(), cartID).
+			Return(expectedDiscount, nil).
+			Times(1)
+
+		res, err := cartService.CalculatePrice(context.Background(), cartID)
+
+		require.NoError(t, err)
+		require.NotNil(t, res)
+		assert.Equal(t, expectedDiscount, res)
+	})
+
 	t.Run("error - cart not found", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -557,27 +584,6 @@ func TestCartService_CalculatePrice(t *testing.T) {
 		require.Error(t, err)
 		assert.Nil(t, res)
 		assert.ErrorIs(t, err, errs.ErrCartNotFound)
-	})
-
-	t.Run("error - empty cart", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-
-		mockRepo := mocks.NewMockRepository(ctrl)
-		cartService := service.New(mockRepo)
-
-		emptyCartID := uuid.New()
-
-		mockRepo.EXPECT().
-			CalculateDiscount(gomock.Any(), emptyCartID).
-			Return(nil, errs.ErrEmptyCart).
-			Times(1)
-
-		res, err := cartService.CalculatePrice(context.Background(), emptyCartID)
-
-		require.Error(t, err)
-		assert.Nil(t, res)
-		assert.ErrorIs(t, err, errs.ErrEmptyCart)
 	})
 
 	t.Run("repository error", func(t *testing.T) {
