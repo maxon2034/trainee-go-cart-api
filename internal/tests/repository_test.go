@@ -741,3 +741,202 @@ func TestCartRepository_RemoveCartItem(t *testing.T) {
 		assert.NoError(t, mock.ExpectationsWereMet())
 	})
 }
+
+func TestCartRepository_CalculateDiscount(t *testing.T) {
+	t.Run("success - discount 10 percent (total > 5000)", func(t *testing.T) {
+		mockDB, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer mockDB.Close()
+
+		sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
+		repo := repository.New(sqlxDB)
+
+		cartID := uuid.New()
+
+		// 1. Проверка существования корзины
+		mock.ExpectQuery(`SELECT EXISTS\(SELECT 1 FROM carts WHERE id = \$1\)`).
+			WithArgs(cartID).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+
+		// 2. Получение цен товаров (сумма 6000 > 5000, 2 товара <= 3) -> скидка 10%
+		mock.ExpectQuery(`SELECT price FROM cart_items WHERE cart_id=\$1`).
+			WithArgs(cartID).
+			WillReturnRows(sqlmock.NewRows([]string{"price"}).
+				AddRow(4000.0).
+				AddRow(2000.0))
+
+		res, err := repo.CalculateDiscount(context.Background(), cartID)
+
+		require.NoError(t, err)
+		require.NotNil(t, res)
+		assert.Equal(t, cartID, res.CartID)
+		assert.Equal(t, 6000.0, res.TotalPrice)
+		assert.Equal(t, 0.1, res.DiscountPercent)
+		assert.Equal(t, 5400.0, res.FinalPrice)
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("success - discount 5 percent (items count > 3)", func(t *testing.T) {
+		mockDB, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer mockDB.Close()
+
+		sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
+		repo := repository.New(sqlxDB)
+
+		cartID := uuid.New()
+
+		mock.ExpectQuery(`SELECT EXISTS\(SELECT 1 FROM carts WHERE id = \$1\)`).
+			WithArgs(cartID).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+
+		// Сумма 4000 (<= 5000), но товаров 4 (> 3) -> скидка 5%
+		mock.ExpectQuery(`SELECT price FROM cart_items WHERE cart_id=\$1`).
+			WithArgs(cartID).
+			WillReturnRows(sqlmock.NewRows([]string{"price"}).
+				AddRow(1000.0).
+				AddRow(1000.0).
+				AddRow(1000.0).
+				AddRow(1000.0))
+
+		res, err := repo.CalculateDiscount(context.Background(), cartID)
+
+		require.NoError(t, err)
+		require.NotNil(t, res)
+		assert.Equal(t, cartID, res.CartID)
+		assert.Equal(t, 4000.0, res.TotalPrice)
+		assert.Equal(t, 0.05, res.DiscountPercent)
+		assert.Equal(t, 3800.0, res.FinalPrice)
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("success - no discount", func(t *testing.T) {
+		mockDB, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer mockDB.Close()
+
+		sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
+		repo := repository.New(sqlxDB)
+
+		cartID := uuid.New()
+
+		mock.ExpectQuery(`SELECT EXISTS\(SELECT 1 FROM carts WHERE id = \$1\)`).
+			WithArgs(cartID).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+
+		// Сумма 3000 (<= 5000), товаров 2 (<= 3) -> скидка 0%
+		mock.ExpectQuery(`SELECT price FROM cart_items WHERE cart_id=\$1`).
+			WithArgs(cartID).
+			WillReturnRows(sqlmock.NewRows([]string{"price"}).
+				AddRow(1500.0).
+				AddRow(1500.0))
+
+		res, err := repo.CalculateDiscount(context.Background(), cartID)
+
+		require.NoError(t, err)
+		require.NotNil(t, res)
+		assert.Equal(t, cartID, res.CartID)
+		assert.Equal(t, 3000.0, res.TotalPrice)
+		assert.Equal(t, 0.0, res.DiscountPercent)
+		assert.Equal(t, 3000.0, res.FinalPrice)
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("should fail if cart does not exist", func(t *testing.T) {
+		mockDB, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer mockDB.Close()
+
+		sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
+		repo := repository.New(sqlxDB)
+
+		nonExistentCartID := uuid.New()
+
+		mock.ExpectQuery(`SELECT EXISTS\(SELECT 1 FROM carts WHERE id = \$1\)`).
+			WithArgs(nonExistentCartID).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+
+		res, err := repo.CalculateDiscount(context.Background(), nonExistentCartID)
+
+		require.Error(t, err)
+		assert.Nil(t, res)
+		assert.ErrorIs(t, err, errs.ErrCartNotFound)
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("should fail if cart has no items (sql.ErrNoRows)", func(t *testing.T) {
+		mockDB, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer mockDB.Close()
+
+		sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
+		repo := repository.New(sqlxDB)
+
+		cartID := uuid.New()
+
+		mock.ExpectQuery(`SELECT EXISTS\(SELECT 1 FROM carts WHERE id = \$1\)`).
+			WithArgs(cartID).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+
+		mock.ExpectQuery(`SELECT price FROM cart_items WHERE cart_id=\$1`).
+			WithArgs(cartID).
+			WillReturnError(sql.ErrNoRows)
+
+		res, err := repo.CalculateDiscount(context.Background(), cartID)
+
+		require.Error(t, err)
+		assert.Nil(t, res)
+		assert.ErrorIs(t, err, errs.ErrEmptyCart)
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("db error - cart exists query failed", func(t *testing.T) {
+		mockDB, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer mockDB.Close()
+
+		sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
+		repo := repository.New(sqlxDB)
+
+		cartID := uuid.New()
+		expectedErr := errors.New("db connection timeout")
+
+		mock.ExpectQuery(`SELECT EXISTS\(SELECT 1 FROM carts WHERE id = \$1\)`).
+			WithArgs(cartID).
+			WillReturnError(expectedErr)
+
+		res, err := repo.CalculateDiscount(context.Background(), cartID)
+
+		require.Error(t, err)
+		assert.Nil(t, res)
+		assert.ErrorIs(t, err, expectedErr)
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("db error - fetch prices query failed", func(t *testing.T) {
+		mockDB, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer mockDB.Close()
+
+		sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
+		repo := repository.New(sqlxDB)
+
+		cartID := uuid.New()
+		expectedErr := errors.New("db internal error")
+
+		mock.ExpectQuery(`SELECT EXISTS\(SELECT 1 FROM carts WHERE id = \$1\)`).
+			WithArgs(cartID).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+
+		mock.ExpectQuery(`SELECT price FROM cart_items WHERE cart_id=\$1`).
+			WithArgs(cartID).
+			WillReturnError(expectedErr)
+
+		res, err := repo.CalculateDiscount(context.Background(), cartID)
+
+		require.Error(t, err)
+		assert.Nil(t, res)
+		assert.ErrorIs(t, err, expectedErr)
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
+}
