@@ -456,3 +456,94 @@ func TestCartRepository_UpdateCartItem(t *testing.T) {
 		assert.NoError(t, mock.ExpectationsWereMet())
 	})
 }
+
+func TestCartRepository_RemoveCartItem(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		mockDB, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer mockDB.Close()
+
+		sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
+		repo := repository.New(sqlxDB)
+
+		itemID := uuid.New()
+
+		// Ожидаем DELETE с успешным удалением 1 строки
+		mock.ExpectExec(`DELETE FROM cart_items WHERE id=\$1`).
+			WithArgs(itemID).
+			WillReturnResult(sqlmock.NewResult(0, 1))
+
+		err = repo.RemoveCartItem(context.Background(), itemID)
+
+		require.NoError(t, err)
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("should fail if item does not exist (0 rows affected)", func(t *testing.T) {
+		mockDB, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer mockDB.Close()
+
+		sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
+		repo := repository.New(sqlxDB)
+
+		nonExistentID := uuid.New()
+
+		// Запрос выполняется без ошибок БД, но удалено 0 строк
+		mock.ExpectExec(`DELETE FROM cart_items WHERE id=\$1`).
+			WithArgs(nonExistentID).
+			WillReturnResult(sqlmock.NewResult(0, 0))
+
+		err = repo.RemoveCartItem(context.Background(), nonExistentID)
+
+		require.Error(t, err)
+		assert.ErrorIs(t, err, errs.ErrCartItemNotFound)
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("db error - DELETE query execution failed", func(t *testing.T) {
+		mockDB, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer mockDB.Close()
+
+		sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
+		repo := repository.New(sqlxDB)
+
+		itemID := uuid.New()
+		expectedErr := errors.New("db delete execution error")
+
+		// Ошибка выполнения самого SQL-запроса
+		mock.ExpectExec(`DELETE FROM cart_items WHERE id=\$1`).
+			WithArgs(itemID).
+			WillReturnError(expectedErr)
+
+		err = repo.RemoveCartItem(context.Background(), itemID)
+
+		require.Error(t, err)
+		assert.ErrorIs(t, err, expectedErr)
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("db error - RowsAffected failed", func(t *testing.T) {
+		mockDB, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer mockDB.Close()
+
+		sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
+		repo := repository.New(sqlxDB)
+
+		itemID := uuid.New()
+		expectedErr := errors.New("rows affected error")
+
+		// Запрос прошел, но получение количества измененных строк возвращает ошибку
+		mock.ExpectExec(`DELETE FROM cart_items WHERE id=\$1`).
+			WithArgs(itemID).
+			WillReturnResult(sqlmock.NewErrorResult(expectedErr))
+
+		err = repo.RemoveCartItem(context.Background(), itemID)
+
+		require.Error(t, err)
+		assert.ErrorIs(t, err, expectedErr)
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
+}

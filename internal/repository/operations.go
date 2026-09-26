@@ -125,6 +125,19 @@ RETURNING id,cart_id,product,price`
 	return &cartItem, nil
 }
 
-//func (r *CartRepository) RemoveCartItem(ctx context.Context, cartID, itemID string) error {
-//	return errors.New("not implemented")
-//}
+func (r *CartRepository) RemoveCartItem(ctx context.Context, itemID uuid.UUID) error {
+	q := `DELETE FROM cart_items WHERE id=$1`
+	res, err := r.db.ExecContext(ctx, q, itemID)
+	if err != nil {
+		return fmt.Errorf("r.RemoveCartItem: %w", err)
+	}
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("r.RemoveCartItem: %w", err)
+	}
+	if rowsAffected == 0 {
+		return errs.ErrCartItemNotFound
+	}
+
+	return nil
+}
