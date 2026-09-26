@@ -174,10 +174,17 @@ func TestCartRepository_AddCartItem(t *testing.T) {
 		product := "Mechanical Keyboard"
 		price := float64(150.00)
 
+		// 1. Проверка существования корзины
+		mock.ExpectQuery(`SELECT EXISTS\(SELECT 1 FROM carts WHERE id = \$1\)`).
+			WithArgs(cartID).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+
+		// 2. Подсчет количества элементов
 		mock.ExpectQuery(`SELECT COUNT\(\*\) FROM cart_items WHERE cart_id=\$1`).
 			WithArgs(cartID).
 			WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(2))
 
+		// 3. Вставка товара
 		mock.ExpectQuery(`INSERT INTO cart_items \(cart_id, product, price\) VALUES \(\$1, \$2, \$3\) RETURNING id,cart_id, product, price`).
 			WithArgs(cartID, product, price).
 			WillReturnRows(sqlmock.NewRows([]string{"id", "cart_id", "product", "price"}).
@@ -225,6 +232,54 @@ func TestCartRepository_AddCartItem(t *testing.T) {
 		assert.ErrorIs(t, err, errs.ErrNegativePrice)
 	})
 
+	t.Run("error - cart not found", func(t *testing.T) {
+		mockDB, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer mockDB.Close()
+
+		sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
+		repo := repository.New(sqlxDB)
+
+		nonExistentCartID := uuid.New()
+
+		// Возвращаем false из проверки EXISTS
+		mock.ExpectQuery(`SELECT EXISTS\(SELECT 1 FROM carts WHERE id = \$1\)`).
+			WithArgs(nonExistentCartID).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+
+		item, err := repo.AddCartItem(context.Background(), nonExistentCartID, "Headphones", 80.00)
+
+		require.Error(t, err)
+		assert.Nil(t, item)
+		assert.ErrorIs(t, err, errs.ErrCartNotFound)
+
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("db error - cart exists query failed", func(t *testing.T) {
+		mockDB, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer mockDB.Close()
+
+		sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
+		repo := repository.New(sqlxDB)
+
+		cartID := uuid.New()
+		expectedErr := errors.New("db connection timeout")
+
+		mock.ExpectQuery(`SELECT EXISTS\(SELECT 1 FROM carts WHERE id = \$1\)`).
+			WithArgs(cartID).
+			WillReturnError(expectedErr)
+
+		item, err := repo.AddCartItem(context.Background(), cartID, "Monitor", 300.00)
+
+		require.Error(t, err)
+		assert.Nil(t, item)
+		assert.ErrorIs(t, err, expectedErr)
+
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
+
 	t.Run("error - cart limit reached", func(t *testing.T) {
 		mockDB, mock, err := sqlmock.New()
 		require.NoError(t, err)
@@ -235,6 +290,12 @@ func TestCartRepository_AddCartItem(t *testing.T) {
 
 		cartID := uuid.New()
 
+		// 1. Корзина существует
+		mock.ExpectQuery(`SELECT EXISTS\(SELECT 1 FROM carts WHERE id = \$1\)`).
+			WithArgs(cartID).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+
+		// 2. В корзине уже 5 элементов
 		mock.ExpectQuery(`SELECT COUNT\(\*\) FROM cart_items WHERE cart_id=\$1`).
 			WithArgs(cartID).
 			WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(5))
@@ -259,6 +320,12 @@ func TestCartRepository_AddCartItem(t *testing.T) {
 		cartID := uuid.New()
 		expectedErr := errors.New("connection failed")
 
+		// 1. Корзина существует
+		mock.ExpectQuery(`SELECT EXISTS\(SELECT 1 FROM carts WHERE id = \$1\)`).
+			WithArgs(cartID).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+
+		// 2. Ошибка на этапе подсчета
 		mock.ExpectQuery(`SELECT COUNT\(\*\) FROM cart_items WHERE cart_id=\$1`).
 			WithArgs(cartID).
 			WillReturnError(expectedErr)
@@ -285,10 +352,17 @@ func TestCartRepository_AddCartItem(t *testing.T) {
 		price := float64(60.00)
 		expectedErr := errors.New("foreign key constraint violation")
 
+		// 1. Корзина существует
+		mock.ExpectQuery(`SELECT EXISTS\(SELECT 1 FROM carts WHERE id = \$1\)`).
+			WithArgs(cartID).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+
+		// 2. Подсчет успешный
 		mock.ExpectQuery(`SELECT COUNT\(\*\) FROM cart_items WHERE cart_id=\$1`).
 			WithArgs(cartID).
 			WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
 
+		// 3. Ошибка на INSERT
 		mock.ExpectQuery(`INSERT INTO cart_items \(cart_id, product, price\) VALUES \(\$1, \$2, \$3\) RETURNING id,cart_id, product, price`).
 			WithArgs(cartID, product, price).
 			WillReturnError(expectedErr)
@@ -320,20 +394,25 @@ func TestCartRepository_UpdateCartItem(t *testing.T) {
 		newProduct := "Shoes"
 		newPrice := float64(5000.50)
 
-		// 1. Ожидаем SELECT по ID товара
-		mock.ExpectQuery(`SELECT cart_id,id,product,price FROM cart_items WHERE id=\$1`).
-			WithArgs(itemID).
+		// 1. Ожидаем проверку существования корзины
+		mock.ExpectQuery(`SELECT EXISTS\(SELECT 1 FROM carts WHERE id = \$1\)`).
+			WithArgs(cartID).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+
+		// 2. Ожидаем SELECT по ID товара и ID корзины
+		mock.ExpectQuery(`SELECT cart_id,id,product,price FROM cart_items WHERE id=\$1 AND cart_id=\$2`).
+			WithArgs(itemID, cartID).
 			WillReturnRows(sqlmock.NewRows([]string{"cart_id", "id", "product", "price"}).
 				AddRow(cartID, itemID, oldProduct, oldPrice))
 
-		// 2. Ожидаем UPDATE: SET product=$1, price=$2 WHERE id=$3 RETURNING...
-		// Аргументы в порядке $1, $2, $3: newProduct, newPrice, itemID
+		// 3. Ожидаем UPDATE: SET product=$1, price=$2 WHERE id=$3 RETURNING...
+		// Аргументы: newProduct, newPrice, itemID
 		mock.ExpectQuery(`UPDATE cart_items SET product=\$1, price=\$2 WHERE id=\$3 RETURNING id,cart_id,product,price`).
 			WithArgs(newProduct, newPrice, itemID).
 			WillReturnRows(sqlmock.NewRows([]string{"id", "cart_id", "product", "price"}).
 				AddRow(itemID, cartID, newProduct, newPrice))
 
-		item, err := repo.UpdateCartItem(context.Background(), itemID, newProduct, newPrice)
+		item, err := repo.UpdateCartItem(context.Background(), cartID, itemID, newProduct, newPrice)
 
 		require.NoError(t, err)
 		require.NotNil(t, item)
@@ -341,6 +420,31 @@ func TestCartRepository_UpdateCartItem(t *testing.T) {
 		assert.Equal(t, cartID, item.CartID)
 		assert.Equal(t, newProduct, item.Product)
 		assert.Equal(t, newPrice, item.Price)
+
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("should fail if cart does not exist", func(t *testing.T) {
+		mockDB, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer mockDB.Close()
+
+		sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
+		repo := repository.New(sqlxDB)
+
+		cartID := uuid.New()
+		itemID := uuid.New()
+
+		// EXISTS возвращает false
+		mock.ExpectQuery(`SELECT EXISTS\(SELECT 1 FROM carts WHERE id = \$1\)`).
+			WithArgs(cartID).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+
+		item, err := repo.UpdateCartItem(context.Background(), cartID, itemID, "Shoes", 5000.50)
+
+		require.Error(t, err)
+		assert.Nil(t, item)
+		assert.ErrorIs(t, err, errs.ErrCartNotFound)
 
 		assert.NoError(t, mock.ExpectationsWereMet())
 	})
@@ -353,14 +457,20 @@ func TestCartRepository_UpdateCartItem(t *testing.T) {
 		sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
 		repo := repository.New(sqlxDB)
 
+		cartID := uuid.New()
 		nonExistentID := uuid.New()
 
-		// SELECT возвращает sql.ErrNoRows
-		mock.ExpectQuery(`SELECT cart_id,id,product,price FROM cart_items WHERE id=\$1`).
-			WithArgs(nonExistentID).
+		// 1. Корзина существует
+		mock.ExpectQuery(`SELECT EXISTS\(SELECT 1 FROM carts WHERE id = \$1\)`).
+			WithArgs(cartID).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+
+		// 2. SELECT возвращает sql.ErrNoRows
+		mock.ExpectQuery(`SELECT cart_id,id,product,price FROM cart_items WHERE id=\$1 AND cart_id=\$2`).
+			WithArgs(nonExistentID, cartID).
 			WillReturnError(sql.ErrNoRows)
 
-		item, err := repo.UpdateCartItem(context.Background(), nonExistentID, "Shoes", 5000.50)
+		item, err := repo.UpdateCartItem(context.Background(), cartID, nonExistentID, "Shoes", 5000.50)
 
 		require.Error(t, err)
 		assert.Nil(t, item)
@@ -380,13 +490,18 @@ func TestCartRepository_UpdateCartItem(t *testing.T) {
 		itemID := uuid.New()
 		cartID := uuid.New()
 
-		// Возвращаем из БД запись с отрицательной ценой
-		mock.ExpectQuery(`SELECT cart_id,id,product,price FROM cart_items WHERE id=\$1`).
-			WithArgs(itemID).
+		// 1. Корзина существует
+		mock.ExpectQuery(`SELECT EXISTS\(SELECT 1 FROM carts WHERE id = \$1\)`).
+			WithArgs(cartID).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+
+		// 2. Возвращаем из БД запись с отрицательной ценой
+		mock.ExpectQuery(`SELECT cart_id,id,product,price FROM cart_items WHERE id=\$1 AND cart_id=\$2`).
+			WithArgs(itemID, cartID).
 			WillReturnRows(sqlmock.NewRows([]string{"cart_id", "id", "product", "price"}).
 				AddRow(cartID, itemID, "Broken Product", -10.00))
 
-		item, err := repo.UpdateCartItem(context.Background(), itemID, "Shoes", 5000.50)
+		item, err := repo.UpdateCartItem(context.Background(), cartID, itemID, "Shoes", 5000.50)
 
 		require.Error(t, err)
 		assert.Nil(t, item)
@@ -406,13 +521,18 @@ func TestCartRepository_UpdateCartItem(t *testing.T) {
 		itemID := uuid.New()
 		cartID := uuid.New()
 
-		// Возвращаем из БД запись с пустым наименованием
-		mock.ExpectQuery(`SELECT cart_id,id,product,price FROM cart_items WHERE id=\$1`).
-			WithArgs(itemID).
+		// 1. Корзина существует
+		mock.ExpectQuery(`SELECT EXISTS\(SELECT 1 FROM carts WHERE id = \$1\)`).
+			WithArgs(cartID).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+
+		// 2. Возвращаем из БД запись с пустым наименованием
+		mock.ExpectQuery(`SELECT cart_id,id,product,price FROM cart_items WHERE id=\$1 AND cart_id=\$2`).
+			WithArgs(itemID, cartID).
 			WillReturnRows(sqlmock.NewRows([]string{"cart_id", "id", "product", "price"}).
 				AddRow(cartID, itemID, "", 100.00))
 
-		item, err := repo.UpdateCartItem(context.Background(), itemID, "Shoes", 5000.50)
+		item, err := repo.UpdateCartItem(context.Background(), cartID, itemID, "Shoes", 5000.50)
 
 		require.Error(t, err)
 		assert.Nil(t, item)
@@ -435,19 +555,23 @@ func TestCartRepository_UpdateCartItem(t *testing.T) {
 		newPrice := float64(5000.50)
 		expectedErr := errors.New("db update failure")
 
-		// 1. SELECT проходит
-		mock.ExpectQuery(`SELECT cart_id,id,product,price FROM cart_items WHERE id=\$1`).
-			WithArgs(itemID).
+		// 1. Корзина существует
+		mock.ExpectQuery(`SELECT EXISTS\(SELECT 1 FROM carts WHERE id = \$1\)`).
+			WithArgs(cartID).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+
+		// 2. SELECT проходит
+		mock.ExpectQuery(`SELECT cart_id,id,product,price FROM cart_items WHERE id=\$1 AND cart_id=\$2`).
+			WithArgs(itemID, cartID).
 			WillReturnRows(sqlmock.NewRows([]string{"cart_id", "id", "product", "price"}).
 				AddRow(cartID, itemID, "Old Product", 100.00))
 
-		// 2. UPDATE отдает ошибку
-		// Аргументы в порядке $1, $2, $3: newProduct, newPrice, itemID
+		// 3. UPDATE отдает ошибку
 		mock.ExpectQuery(`UPDATE cart_items SET product=\$1, price=\$2 WHERE id=\$3 RETURNING id,cart_id,product,price`).
 			WithArgs(newProduct, newPrice, itemID).
 			WillReturnError(expectedErr)
 
-		item, err := repo.UpdateCartItem(context.Background(), itemID, newProduct, newPrice)
+		item, err := repo.UpdateCartItem(context.Background(), cartID, itemID, newProduct, newPrice)
 
 		require.Error(t, err)
 		assert.Nil(t, item)
@@ -466,16 +590,68 @@ func TestCartRepository_RemoveCartItem(t *testing.T) {
 		sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
 		repo := repository.New(sqlxDB)
 
+		cartID := uuid.New()
 		itemID := uuid.New()
 
-		// Ожидаем DELETE с успешным удалением 1 строки
-		mock.ExpectExec(`DELETE FROM cart_items WHERE id=\$1`).
-			WithArgs(itemID).
+		// 1. Ожидаем проверку существования корзины
+		mock.ExpectQuery(`SELECT EXISTS\(SELECT 1 FROM carts WHERE id = \$1\)`).
+			WithArgs(cartID).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+
+		// 2. Ожидаем DELETE с аргументами itemID ($1) и cartID ($2)
+		mock.ExpectExec(`DELETE FROM cart_items WHERE id=\$1 AND cart_id=\$2`).
+			WithArgs(itemID, cartID).
 			WillReturnResult(sqlmock.NewResult(0, 1))
 
-		err = repo.RemoveCartItem(context.Background(), itemID)
+		err = repo.RemoveCartItem(context.Background(), cartID, itemID)
 
 		require.NoError(t, err)
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("should fail if cart does not exist", func(t *testing.T) {
+		mockDB, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer mockDB.Close()
+
+		sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
+		repo := repository.New(sqlxDB)
+
+		nonExistentCartID := uuid.New()
+		itemID := uuid.New()
+
+		// EXISTS возвращает false
+		mock.ExpectQuery(`SELECT EXISTS\(SELECT 1 FROM carts WHERE id = \$1\)`).
+			WithArgs(nonExistentCartID).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+
+		err = repo.RemoveCartItem(context.Background(), nonExistentCartID, itemID)
+
+		require.Error(t, err)
+		assert.ErrorIs(t, err, errs.ErrCartNotFound)
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("db error - cart exists query failed", func(t *testing.T) {
+		mockDB, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer mockDB.Close()
+
+		sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
+		repo := repository.New(sqlxDB)
+
+		cartID := uuid.New()
+		itemID := uuid.New()
+		expectedErr := errors.New("db connection timeout")
+
+		mock.ExpectQuery(`SELECT EXISTS\(SELECT 1 FROM carts WHERE id = \$1\)`).
+			WithArgs(cartID).
+			WillReturnError(expectedErr)
+
+		err = repo.RemoveCartItem(context.Background(), cartID, itemID)
+
+		require.Error(t, err)
+		assert.ErrorIs(t, err, expectedErr)
 		assert.NoError(t, mock.ExpectationsWereMet())
 	})
 
@@ -487,14 +663,20 @@ func TestCartRepository_RemoveCartItem(t *testing.T) {
 		sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
 		repo := repository.New(sqlxDB)
 
-		nonExistentID := uuid.New()
+		cartID := uuid.New()
+		nonExistentItemID := uuid.New()
 
-		// Запрос выполняется без ошибок БД, но удалено 0 строк
-		mock.ExpectExec(`DELETE FROM cart_items WHERE id=\$1`).
-			WithArgs(nonExistentID).
+		// 1. Корзина существует
+		mock.ExpectQuery(`SELECT EXISTS\(SELECT 1 FROM carts WHERE id = \$1\)`).
+			WithArgs(cartID).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+
+		// 2. DELETE отработал, но 0 строк удалено
+		mock.ExpectExec(`DELETE FROM cart_items WHERE id=\$1 AND cart_id=\$2`).
+			WithArgs(nonExistentItemID, cartID).
 			WillReturnResult(sqlmock.NewResult(0, 0))
 
-		err = repo.RemoveCartItem(context.Background(), nonExistentID)
+		err = repo.RemoveCartItem(context.Background(), cartID, nonExistentItemID)
 
 		require.Error(t, err)
 		assert.ErrorIs(t, err, errs.ErrCartItemNotFound)
@@ -509,15 +691,21 @@ func TestCartRepository_RemoveCartItem(t *testing.T) {
 		sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
 		repo := repository.New(sqlxDB)
 
+		cartID := uuid.New()
 		itemID := uuid.New()
 		expectedErr := errors.New("db delete execution error")
 
-		// Ошибка выполнения самого SQL-запроса
-		mock.ExpectExec(`DELETE FROM cart_items WHERE id=\$1`).
-			WithArgs(itemID).
+		// 1. Корзина существует
+		mock.ExpectQuery(`SELECT EXISTS\(SELECT 1 FROM carts WHERE id = \$1\)`).
+			WithArgs(cartID).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+
+		// 2. Ошибка выполнения SQL-запроса DELETE
+		mock.ExpectExec(`DELETE FROM cart_items WHERE id=\$1 AND cart_id=\$2`).
+			WithArgs(itemID, cartID).
 			WillReturnError(expectedErr)
 
-		err = repo.RemoveCartItem(context.Background(), itemID)
+		err = repo.RemoveCartItem(context.Background(), cartID, itemID)
 
 		require.Error(t, err)
 		assert.ErrorIs(t, err, expectedErr)
@@ -532,15 +720,21 @@ func TestCartRepository_RemoveCartItem(t *testing.T) {
 		sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
 		repo := repository.New(sqlxDB)
 
+		cartID := uuid.New()
 		itemID := uuid.New()
 		expectedErr := errors.New("rows affected error")
 
-		// Запрос прошел, но получение количества измененных строк возвращает ошибку
-		mock.ExpectExec(`DELETE FROM cart_items WHERE id=\$1`).
-			WithArgs(itemID).
+		// 1. Корзина существует
+		mock.ExpectQuery(`SELECT EXISTS\(SELECT 1 FROM carts WHERE id = \$1\)`).
+			WithArgs(cartID).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+
+		// 2. Запрос прошел, но проверка RowsAffected вернет ошибку
+		mock.ExpectExec(`DELETE FROM cart_items WHERE id=\$1 AND cart_id=\$2`).
+			WithArgs(itemID, cartID).
 			WillReturnResult(sqlmock.NewErrorResult(expectedErr))
 
-		err = repo.RemoveCartItem(context.Background(), itemID)
+		err = repo.RemoveCartItem(context.Background(), cartID, itemID)
 
 		require.Error(t, err)
 		assert.ErrorIs(t, err, expectedErr)
