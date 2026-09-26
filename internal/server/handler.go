@@ -7,6 +7,6 @@ type Handler interface {
 	Create(http.ResponseWriter, *http.Request)
 	AddItem(http.ResponseWriter, *http.Request)
 	UpdateItem(http.ResponseWriter, *http.Request)
+	DeleteItem(http.ResponseWriter, *http.Request)
 	//Calculate(http.ResponseWriter, *http.Request)
-	//Delete(http.ResponseWriter, *http.Request)
 }
