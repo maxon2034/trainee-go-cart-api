@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/maxon2034/trainee-go-cart-api/internal/entity"
 	"github.com/maxon2034/trainee-go-cart-api/internal/errs"
 )
 
@@ -90,7 +91,16 @@ func (s *CartService) RemoveItem(ctx context.Context, cartID, itemID uuid.UUID) 
 	return nil
 }
 
-//func (s *CartService) CalculatePrice() {
-//	//TODO implement me
-//	panic("implement me")
-//}
+func (s *CartService) CalculatePrice(ctx context.Context, cartID uuid.UUID) (*entity.CartDiscount, error) {
+	cartDiscount, err := s.repo.CalculateDiscount(ctx, cartID)
+	if err != nil {
+		if errors.Is(err, errs.ErrCartNotFound) {
+			return nil, errs.ErrCartNotFound
+		}
+		if errors.Is(err, errs.ErrEmptyCart) {
+			return nil, errs.ErrEmptyCart
+		}
+		return nil, fmt.Errorf("s.CalculatePrice: %w", err)
+	}
+	return cartDiscount, nil
+}
