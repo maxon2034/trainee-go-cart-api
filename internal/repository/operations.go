@@ -172,3 +172,48 @@ func (r *CartRepository) RemoveCartItem(ctx context.Context, cartID, itemID uuid
 
 	return nil
 }
+
+func (r *CartRepository) CalculateDiscount(ctx context.Context, cartID uuid.UUID) (*entity.CartDiscount, error) {
+	var cartDiscount entity.CartDiscount
+	var prices []float64
+	var totalPrice float64
+	var discount float64
+
+	var exists bool
+	q := `SELECT EXISTS(SELECT 1 FROM carts WHERE id = $1)`
+	err := r.db.GetContext(ctx, &exists, q, cartID)
+	if err != nil {
+		return nil, fmt.Errorf("r.RemoveCartItem: %w", err)
+	}
+	if !exists {
+		return nil, errs.ErrCartNotFound
+	}
+
+	q = `SELECT price FROM cart_items WHERE cart_id=$1`
+	err = r.db.SelectContext(ctx, &prices, q, cartID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, errs.ErrEmptyCart
+		}
+		return nil, fmt.Errorf("r.RemoveCartItem: %w", err)
+	}
+
+	for _, v := range prices {
+		totalPrice += v
+	}
+
+	discount = 0
+	if totalPrice > 5000 && len(prices) > 3 || totalPrice > 5000 {
+		discount = 0.1
+	}
+	if len(prices) > 3 {
+		discount = 0.05
+	}
+
+	cartDiscount.CartID = cartID
+	cartDiscount.TotalPrice = totalPrice
+	cartDiscount.DiscountPercent = discount
+	cartDiscount.FinalPrice = totalPrice - (totalPrice * discount)
+
+	return &cartDiscount, nil
+}
