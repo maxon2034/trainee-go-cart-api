@@ -19,8 +19,8 @@ func (s *CartService) CreateCart(ctx context.Context) (CartDTO, error) {
 	return cartDTO, nil
 }
 
-func (s *CartService) ViewCart(ctx context.Context, id uuid.UUID) (CartDTO, error) {
-	cart, err := s.repo.GetCart(ctx, id)
+func (s *CartService) ViewCart(ctx context.Context, cartID uuid.UUID) (CartDTO, error) {
+	cart, err := s.repo.GetCart(ctx, cartID)
 	if err != nil {
 		if errors.Is(err, errs.ErrCartNotFound) {
 			return CartDTO{}, errs.ErrCartNotFound
@@ -61,6 +61,9 @@ func (s *CartService) UpdateCartItem(ctx context.Context, cartID, itemID uuid.UU
 		if errors.Is(err, errs.ErrCartItemNotFound) {
 			return CartItemDTO{}, errs.ErrCartItemNotFound
 		}
+		if errors.Is(err, errs.ErrCartNotFound) {
+			return CartItemDTO{}, errs.ErrCartNotFound
+		}
 		if errors.Is(err, errs.ErrEmptyProduct) {
 			return CartItemDTO{}, errs.ErrEmptyProduct
 		}
@@ -80,6 +83,9 @@ func (s *CartService) RemoveItem(ctx context.Context, cartID, itemID uuid.UUID) 
 	if err != nil {
 		if errors.Is(err, errs.ErrCartItemNotFound) {
 			return errs.ErrCartItemNotFound
+		}
+		if errors.Is(err, errs.ErrCartNotFound) {
+			return errs.ErrCartNotFound
 		}
 		return fmt.Errorf("s.RemoveItem: %w", err)
 	}
