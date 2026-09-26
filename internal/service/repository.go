@@ -11,8 +11,8 @@ import (
 
 type Repository interface {
 	AddCart(ctx context.Context) (*entity.Cart, error)
-	GetCart(ctx context.Context, id uuid.UUID) (*entity.Cart, error)
-	AddCartItem(ctx context.Context, cartId uuid.UUID, product string, price float64) (*entity.CartItem, error)
-	UpdateCartItem(ctx context.Context, ID uuid.UUID, newProduct string, newPrice float64) (*entity.CartItem, error)
-	RemoveCartItem(ctx context.Context, itemID uuid.UUID) error
+	GetCart(ctx context.Context, cartID uuid.UUID) (*entity.Cart, error)
+	AddCartItem(ctx context.Context, cartID uuid.UUID, product string, price float64) (*entity.CartItem, error)
+	UpdateCartItem(ctx context.Context, cartID, itemID uuid.UUID, newProduct string, newPrice float64) (*entity.CartItem, error)
+	RemoveCartItem(ctx context.Context, cartID, itemID uuid.UUID) error
 }

@@ -33,8 +33,8 @@ func (s *CartService) ViewCart(ctx context.Context, id uuid.UUID) (CartDTO, erro
 	return cartDTO, nil
 }
 
-func (s *CartService) AddItem(ctx context.Context, cartId uuid.UUID, product string, price float64) (CartItemDTO, error) {
-	cartItem, err := s.repo.AddCartItem(ctx, cartId, product, price)
+func (s *CartService) AddItem(ctx context.Context, cartID uuid.UUID, product string, price float64) (CartItemDTO, error) {
+	cartItem, err := s.repo.AddCartItem(ctx, cartID, product, price)
 	if err != nil {
 		if errors.Is(err, errs.ErrFullCart) {
 			return CartItemDTO{}, errs.ErrFullCart
@@ -55,8 +55,8 @@ func (s *CartService) AddItem(ctx context.Context, cartId uuid.UUID, product str
 	return cartItemDTO, nil
 }
 
-func (s *CartService) UpdateCartItem(ctx context.Context, ID uuid.UUID, newProduct string, newPrice float64) (CartItemDTO, error) {
-	cartItem, err := s.repo.UpdateCartItem(ctx, ID, newProduct, newPrice)
+func (s *CartService) UpdateCartItem(ctx context.Context, cartID, itemID uuid.UUID, newProduct string, newPrice float64) (CartItemDTO, error) {
+	cartItem, err := s.repo.UpdateCartItem(ctx, cartID, itemID, newProduct, newPrice)
 	if err != nil {
 		if errors.Is(err, errs.ErrCartItemNotFound) {
 			return CartItemDTO{}, errs.ErrCartItemNotFound
@@ -75,8 +75,8 @@ func (s *CartService) UpdateCartItem(ctx context.Context, ID uuid.UUID, newProdu
 	return cartItemDTO, nil
 }
 
-func (s *CartService) RemoveItem(ctx context.Context, itemID uuid.UUID) error {
-	err := s.repo.RemoveCartItem(ctx, itemID)
+func (s *CartService) RemoveItem(ctx context.Context, cartID, itemID uuid.UUID) error {
+	err := s.repo.RemoveCartItem(ctx, cartID, itemID)
 	if err != nil {
 		if errors.Is(err, errs.ErrCartItemNotFound) {
 			return errs.ErrCartItemNotFound
