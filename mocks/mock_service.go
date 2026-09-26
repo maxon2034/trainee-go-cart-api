@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	uuid "github.com/google/uuid"
+	entity "github.com/maxon2034/trainee-go-cart-api/internal/entity"
 	service "github.com/maxon2034/trainee-go-cart-api/internal/service"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -43,10 +44,10 @@ func (m *MockService) EXPECT() *MockServiceMockRecorder {
 }
 
 // AddItem mocks base method.
-func (m *MockService) AddItem(ctx context.Context, cartID uuid.UUID, product string, price float64) (service.CartItemDTO, error) {
+func (m *MockService) AddItem(ctx context.Context, cartID uuid.UUID, product string, price float64) (*service.CartItemDTO, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddItem", ctx, cartID, product, price)
-	ret0, _ := ret[0].(service.CartItemDTO)
+	ret0, _ := ret[0].(*service.CartItemDTO)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -57,11 +58,26 @@ func (mr *MockServiceMockRecorder) AddItem(ctx, cartID, product, price any) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddItem", reflect.TypeOf((*MockService)(nil).AddItem), ctx, cartID, product, price)
 }
 
+// CalculatePrice mocks base method.
+func (m *MockService) CalculatePrice(ctx context.Context, cartID uuid.UUID) (*entity.CartDiscount, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CalculatePrice", ctx, cartID)
+	ret0, _ := ret[0].(*entity.CartDiscount)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CalculatePrice indicates an expected call of CalculatePrice.
+func (mr *MockServiceMockRecorder) CalculatePrice(ctx, cartID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CalculatePrice", reflect.TypeOf((*MockService)(nil).CalculatePrice), ctx, cartID)
+}
+
 // CreateCart mocks base method.
-func (m *MockService) CreateCart(ctx context.Context) (service.CartDTO, error) {
+func (m *MockService) CreateCart(ctx context.Context) (*service.CartDTO, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateCart", ctx)
-	ret0, _ := ret[0].(service.CartDTO)
+	ret0, _ := ret[0].(*service.CartDTO)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -87,10 +103,10 @@ func (mr *MockServiceMockRecorder) RemoveItem(ctx, cartID, itemID any) *gomock.C
 }
 
 // UpdateCartItem mocks base method.
-func (m *MockService) UpdateCartItem(ctx context.Context, cartID, itemID uuid.UUID, newProduct string, newPrice float64) (service.CartItemDTO, error) {
+func (m *MockService) UpdateCartItem(ctx context.Context, cartID, itemID uuid.UUID, newProduct string, newPrice float64) (*service.CartItemDTO, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateCartItem", ctx, cartID, itemID, newProduct, newPrice)
-	ret0, _ := ret[0].(service.CartItemDTO)
+	ret0, _ := ret[0].(*service.CartItemDTO)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -102,10 +118,10 @@ func (mr *MockServiceMockRecorder) UpdateCartItem(ctx, cartID, itemID, newProduc
 }
 
 // ViewCart mocks base method.
-func (m *MockService) ViewCart(ctx context.Context, cartID uuid.UUID) (service.CartDTO, error) {
+func (m *MockService) ViewCart(ctx context.Context, cartID uuid.UUID) (*service.CartDTO, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ViewCart", ctx, cartID)
-	ret0, _ := ret[0].(service.CartDTO)
+	ret0, _ := ret[0].(*service.CartDTO)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
