@@ -64,7 +64,7 @@ func (h *CartHandler) View(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, errs.ErrCartNotFound) {
 			w.WriteHeader(http.StatusNotFound)
-			w.Write(errs.NotFound())
+			w.Write(errs.CartNotFound())
 			h.logger.Info("cart not found", slog.Any("id", cartID.String()))
 			return
 		}
@@ -91,8 +91,8 @@ func (h *CartHandler) AddItem(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), time.Second*5)
 	defer cancel()
 
-	cartId := r.PathValue("cart_id")
-	cartUUID, err := uuid.Parse(cartId)
+	cartID := r.PathValue("cart_id")
+	cartUUID, err := uuid.Parse(cartID)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write(errs.BadCartRequest())
@@ -112,7 +112,7 @@ func (h *CartHandler) AddItem(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, errs.ErrCartNotFound) {
 			w.WriteHeader(http.StatusNotFound)
-			w.Write(errs.NotFound())
+			w.Write(errs.CartNotFound())
 			h.logger.Info("cart not found", slog.Any("id", cartUUID.String()))
 			return
 		}
@@ -185,7 +185,7 @@ func (h *CartHandler) UpdateItem(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, errs.ErrCartItemNotFound) {
 			w.WriteHeader(http.StatusNotFound)
-			w.Write(errs.NotFound())
+			w.Write(errs.ItemNotFound())
 			h.logger.Info("cart not found", slog.Any("id", cartUUID.String()))
 			return
 		}
@@ -212,4 +212,48 @@ func (h *CartHandler) UpdateItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.logger.Info("updated item", slog.Any("cartItem", cartItemDTO))
+}
+
+func (h *CartHandler) DeleteItem(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), time.Second*5)
+	defer cancel()
+
+	cartID := r.PathValue("cart_id")
+	cartUUID, err := uuid.Parse(cartID)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write(errs.BadCartRequest())
+		h.logger.Error("error in parsing uuid", slog.Any("error", err))
+		return
+	}
+
+	cartItemID := r.PathValue("id")
+	cartItemUUID, err := uuid.Parse(cartItemID)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write(errs.BadItemRequest())
+		h.logger.Error("error in parsing item uuid", slog.Any("error", err))
+		return
+	}
+
+	err = h.service.RemoveItem(ctx, cartUUID, cartItemUUID)
+	if err != nil {
+		if errors.Is(err, errs.ErrCartNotFound) {
+			w.WriteHeader(http.StatusNotFound)
+			w.Write(errs.CartNotFound())
+			h.logger.Info("cart not found", slog.Any("id", cartUUID.String()))
+			return
+		}
+		if errors.Is(err, errs.ErrCartItemNotFound) {
+			w.WriteHeader(http.StatusNotFound)
+			w.Write(errs.ItemNotFound())
+			h.logger.Info("cart not found", slog.Any("id", cartUUID.String()))
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		h.logger.Error("error in removing item", slog.Any("error", err))
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+	h.logger.Info("deleted item", slog.Any("cartItem", cartItemID))
 }

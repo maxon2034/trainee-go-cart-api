@@ -22,6 +22,20 @@ func NotFound() []byte {
 	}.ToBytes()
 }
 
+func CartNotFound() []byte {
+	return ErrorResponse{
+		Error:   "CART_NOT_FOUND",
+		Message: "Requested cart was not found",
+	}.ToBytes()
+}
+
+func ItemNotFound() []byte {
+	return ErrorResponse{
+		Error:   "ITEM_NOT_FOUND",
+		Message: "Requested item was not found",
+	}.ToBytes()
+}
+
 func BadRequest() []byte {
 	return ErrorResponse{
 		Error:   "BAD_REQUEST",
