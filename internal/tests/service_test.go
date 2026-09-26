@@ -510,7 +510,7 @@ func TestCartService_RemoveItem(t *testing.T) {
 	})
 }
 
-func TestCartService_CalculatePrice(t *testing.T) {
+func TestCartService_CalculateDiscount(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -531,7 +531,7 @@ func TestCartService_CalculatePrice(t *testing.T) {
 			Return(expectedDiscount, nil).
 			Times(1)
 
-		res, err := cartService.CalculatePrice(context.Background(), cartID)
+		res, err := cartService.CalculateDiscount(context.Background(), cartID)
 
 		require.NoError(t, err)
 		require.NotNil(t, res)
@@ -558,7 +558,7 @@ func TestCartService_CalculatePrice(t *testing.T) {
 			Return(expectedDiscount, nil).
 			Times(1)
 
-		res, err := cartService.CalculatePrice(context.Background(), cartID)
+		res, err := cartService.CalculateDiscount(context.Background(), cartID)
 
 		require.NoError(t, err)
 		require.NotNil(t, res)
@@ -579,7 +579,7 @@ func TestCartService_CalculatePrice(t *testing.T) {
 			Return(nil, errs.ErrCartNotFound).
 			Times(1)
 
-		res, err := cartService.CalculatePrice(context.Background(), nonExistentCartID)
+		res, err := cartService.CalculateDiscount(context.Background(), nonExistentCartID)
 
 		require.Error(t, err)
 		assert.Nil(t, res)
@@ -601,7 +601,7 @@ func TestCartService_CalculatePrice(t *testing.T) {
 			Return(nil, expectedErr).
 			Times(1)
 
-		res, err := cartService.CalculatePrice(context.Background(), cartID)
+		res, err := cartService.CalculateDiscount(context.Background(), cartID)
 
 		require.Error(t, err)
 		assert.Nil(t, res)

@@ -91,7 +91,7 @@ func (s *CartService) RemoveItem(ctx context.Context, cartID, itemID uuid.UUID) 
 	return nil
 }
 
-func (s *CartService) CalculatePrice(ctx context.Context, cartID uuid.UUID) (*entity.CartDiscount, error) {
+func (s *CartService) CalculateDiscount(ctx context.Context, cartID uuid.UUID) (*entity.CartDiscount, error) {
 	cartDiscount, err := s.repo.CalculateDiscount(ctx, cartID)
 	if err != nil {
 		if errors.Is(err, errs.ErrCartNotFound) {

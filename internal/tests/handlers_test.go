@@ -11,7 +11,10 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/maxon2034/trainee-go-cart-api/internal/entity"
 	"github.com/maxon2034/trainee-go-cart-api/internal/handlers"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
 	"github.com/maxon2034/trainee-go-cart-api/internal/errs"
@@ -35,7 +38,7 @@ func TestCartHandler_Create(t *testing.T) {
 			buildStubs: func(ms *mocks.MockService) {
 				ms.EXPECT().
 					CreateCart(gomock.Any()).
-					Return(service.CartDTO{
+					Return(&service.CartDTO{
 						ID:    cartID,
 						Items: []service.CartItemDTO{},
 					}, nil).
@@ -60,7 +63,7 @@ func TestCartHandler_Create(t *testing.T) {
 			buildStubs: func(ms *mocks.MockService) {
 				ms.EXPECT().
 					CreateCart(gomock.Any()).
-					Return(service.CartDTO{}, errors.New("db error")).
+					Return(nil, errors.New("db error")).
 					Times(1)
 			},
 			expectedStatus: http.StatusInternalServerError,
@@ -114,7 +117,7 @@ func TestCartHandler_AddItem(t *testing.T) {
 			buildStubs: func(ms *mocks.MockService) {
 				ms.EXPECT().
 					AddItem(gomock.Any(), cartID, "Shoes", 2500.50).
-					Return(service.CartItemDTO{
+					Return(&service.CartItemDTO{
 						ID:      itemID,
 						CartID:  cartID,
 						Product: "Shoes",
@@ -145,7 +148,7 @@ func TestCartHandler_AddItem(t *testing.T) {
 			url:            "/api/v1/carts/" + cartID.String() + "/items",
 			body:           `{"product": "Shoes", "price": }`,
 			buildStubs:     func(ms *mocks.MockService) { /* Сервис не вызовется */ },
-			expectedStatus: http.StatusBadRequest, // СТРОГО 400! Упадет, если в хэндлере нет w.WriteHeader(http.StatusBadRequest)
+			expectedStatus: http.StatusBadRequest,
 		},
 		{
 			name: "Fail - Cart Not Found",
@@ -154,7 +157,7 @@ func TestCartHandler_AddItem(t *testing.T) {
 			buildStubs: func(ms *mocks.MockService) {
 				ms.EXPECT().
 					AddItem(gomock.Any(), cartID, "Shoes", 2500.50).
-					Return(service.CartItemDTO{}, errs.ErrCartNotFound).
+					Return(nil, errs.ErrCartNotFound).
 					Times(1)
 			},
 			expectedStatus: http.StatusNotFound,
@@ -166,7 +169,7 @@ func TestCartHandler_AddItem(t *testing.T) {
 			buildStubs: func(ms *mocks.MockService) {
 				ms.EXPECT().
 					AddItem(gomock.Any(), cartID, "Socks", 100.0).
-					Return(service.CartItemDTO{}, errs.ErrFullCart).
+					Return(nil, errs.ErrFullCart).
 					Times(1)
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -176,10 +179,9 @@ func TestCartHandler_AddItem(t *testing.T) {
 			url:  "/api/v1/carts/" + cartID.String() + "/items",
 			body: `{"product": "   ", "price": 2500.50}`,
 			buildStubs: func(ms *mocks.MockService) {
-				// Если валидация на уровне сервиса:
 				ms.EXPECT().
 					AddItem(gomock.Any(), cartID, "   ", 2500.50).
-					Return(service.CartItemDTO{}, errs.ErrEmptyProduct).
+					Return(nil, errs.ErrEmptyProduct).
 					Times(1)
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -191,7 +193,7 @@ func TestCartHandler_AddItem(t *testing.T) {
 			buildStubs: func(ms *mocks.MockService) {
 				ms.EXPECT().
 					AddItem(gomock.Any(), cartID, "Shoes", -10.0).
-					Return(service.CartItemDTO{}, errs.ErrNegativePrice).
+					Return(nil, errs.ErrNegativePrice).
 					Times(1)
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -246,7 +248,7 @@ func TestCartHandler_View(t *testing.T) {
 			buildStubs: func(ms *mocks.MockService) {
 				ms.EXPECT().
 					ViewCart(gomock.Any(), cartID).
-					Return(service.CartDTO{
+					Return(&service.CartDTO{
 						ID: cartID,
 						Items: []service.CartItemDTO{
 							{ID: uuid.New(), CartID: cartID, Product: "Shoes", Price: 2500.50},
@@ -278,7 +280,7 @@ func TestCartHandler_View(t *testing.T) {
 			buildStubs: func(ms *mocks.MockService) {
 				ms.EXPECT().
 					ViewCart(gomock.Any(), cartID).
-					Return(service.CartDTO{}, errs.ErrCartNotFound).
+					Return(nil, errs.ErrCartNotFound).
 					Times(1)
 			},
 			expectedStatus: http.StatusNotFound,
@@ -312,7 +314,6 @@ func TestCartHandler_View(t *testing.T) {
 			h := handlers.NewCartHandler(mockSvc, discardLogger)
 
 			router := http.NewServeMux()
-			// Важно: {cart_id} вместо {id}
 			router.HandleFunc("GET /api/v1/carts/{cart_id}", h.View)
 
 			req := httptest.NewRequest(http.MethodGet, tt.url, nil)
@@ -351,7 +352,7 @@ func TestCartHandler_UpdateItem(t *testing.T) {
 			buildStubs: func(ms *mocks.MockService) {
 				ms.EXPECT().
 					UpdateCartItem(gomock.Any(), cartID, itemID, "Shoes", 5000.50).
-					Return(service.CartItemDTO{
+					Return(&service.CartItemDTO{
 						ID:      itemID,
 						CartID:  cartID,
 						Product: "Shoes",
@@ -413,7 +414,7 @@ func TestCartHandler_UpdateItem(t *testing.T) {
 			buildStubs: func(ms *mocks.MockService) {
 				ms.EXPECT().
 					UpdateCartItem(gomock.Any(), cartID, itemID, "Shoes", 5000.50).
-					Return(service.CartItemDTO{}, errs.ErrCartNotFound).
+					Return(nil, errs.ErrCartNotFound).
 					Times(1)
 			},
 			expectedStatus: http.StatusNotFound,
@@ -430,7 +431,7 @@ func TestCartHandler_UpdateItem(t *testing.T) {
 			buildStubs: func(ms *mocks.MockService) {
 				ms.EXPECT().
 					UpdateCartItem(gomock.Any(), cartID, itemID, "Shoes", 5000.50).
-					Return(service.CartItemDTO{}, errs.ErrCartItemNotFound).
+					Return(nil, errs.ErrCartItemNotFound).
 					Times(1)
 			},
 			expectedStatus: http.StatusNotFound,
@@ -447,7 +448,7 @@ func TestCartHandler_UpdateItem(t *testing.T) {
 			buildStubs: func(ms *mocks.MockService) {
 				ms.EXPECT().
 					UpdateCartItem(gomock.Any(), cartID, itemID, "", 5000.50).
-					Return(service.CartItemDTO{}, errs.ErrEmptyProduct).
+					Return(nil, errs.ErrEmptyProduct).
 					Times(1)
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -464,7 +465,7 @@ func TestCartHandler_UpdateItem(t *testing.T) {
 			buildStubs: func(ms *mocks.MockService) {
 				ms.EXPECT().
 					UpdateCartItem(gomock.Any(), cartID, itemID, "Shoes", -100.0).
-					Return(service.CartItemDTO{}, errs.ErrNegativePrice).
+					Return(nil, errs.ErrNegativePrice).
 					Times(1)
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -481,7 +482,7 @@ func TestCartHandler_UpdateItem(t *testing.T) {
 			buildStubs: func(ms *mocks.MockService) {
 				ms.EXPECT().
 					UpdateCartItem(gomock.Any(), cartID, itemID, "Shoes", 5000.50).
-					Return(service.CartItemDTO{}, errors.New("db connection failure")).
+					Return(nil, errors.New("db connection failure")).
 					Times(1)
 			},
 			expectedStatus: http.StatusInternalServerError,
@@ -627,6 +628,142 @@ func TestCartHandler_DeleteItem(t *testing.T) {
 			router.HandleFunc("DELETE /api/v1/carts/{cart_id}/items/{item_id}", h.DeleteItem)
 
 			req := httptest.NewRequest(http.MethodDelete, tt.url, nil)
+			rec := httptest.NewRecorder()
+
+			router.ServeHTTP(rec, req)
+
+			if rec.Code != tt.expectedStatus {
+				t.Fatalf("STATUS MISMATCH: expected %d, got %d. Body: %s", tt.expectedStatus, rec.Code, rec.Body.String())
+			}
+
+			if tt.checkResponse != nil {
+				tt.checkResponse(t, rec.Body.Bytes())
+			}
+		})
+	}
+}
+
+func TestCartHandler_CalculateDiscount(t *testing.T) {
+	discardLogger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	cartID := uuid.New()
+
+	validCartDiscount := &entity.CartDiscount{
+		CartID:          cartID,
+		TotalPrice:      6000.0,
+		DiscountPercent: 0.1,
+		FinalPrice:      5400.0,
+	}
+
+	tests := []struct {
+		name           string
+		url            string
+		buildStubs     func(ms *mocks.MockService)
+		expectedStatus int
+		checkResponse  func(t *testing.T, body []byte)
+	}{
+		{
+			name: "Success - Calculated Discount",
+			url:  "/api/v1/carts/" + cartID.String() + "/discount",
+			buildStubs: func(ms *mocks.MockService) {
+				ms.EXPECT().
+					CalculateDiscount(gomock.Any(), cartID).
+					Return(validCartDiscount, nil).
+					Times(1)
+			},
+			expectedStatus: http.StatusOK,
+			checkResponse: func(t *testing.T, body []byte) {
+				var resp entity.CartDiscount
+				err := json.Unmarshal(body, &resp)
+				require.NoError(t, err, "Response body should be valid JSON")
+				assert.Equal(t, validCartDiscount.CartID, resp.CartID)
+				assert.Equal(t, validCartDiscount.TotalPrice, resp.TotalPrice)
+				assert.Equal(t, validCartDiscount.DiscountPercent, resp.DiscountPercent)
+				assert.Equal(t, validCartDiscount.FinalPrice, resp.FinalPrice)
+			},
+		},
+		{
+			name: "Success - Empty Cart (Zero Discount)",
+			url:  "/api/v1/carts/" + cartID.String() + "/discount",
+			buildStubs: func(ms *mocks.MockService) {
+				emptyCartDiscount := &entity.CartDiscount{
+					CartID:          cartID,
+					TotalPrice:      0,
+					DiscountPercent: 0,
+					FinalPrice:      0,
+				}
+				ms.EXPECT().
+					CalculateDiscount(gomock.Any(), cartID).
+					Return(emptyCartDiscount, nil).
+					Times(1)
+			},
+			expectedStatus: http.StatusOK,
+			checkResponse: func(t *testing.T, body []byte) {
+				var resp entity.CartDiscount
+				err := json.Unmarshal(body, &resp)
+				require.NoError(t, err)
+				assert.Equal(t, cartID, resp.CartID)
+				assert.Equal(t, 0.0, resp.TotalPrice)
+				assert.Equal(t, 0.0, resp.DiscountPercent)
+				assert.Equal(t, 0.0, resp.FinalPrice)
+			},
+		},
+		{
+			name:           "Fail - Invalid Cart UUID",
+			url:            "/api/v1/carts/invalid-uuid/discount",
+			buildStubs:     func(ms *mocks.MockService) { /* Сервис не вызовется */ },
+			expectedStatus: http.StatusBadRequest,
+			checkResponse: func(t *testing.T, body []byte) {
+				if !bytes.Equal(body, errs.BadCartRequest()) {
+					t.Errorf("Expected body %s, got %s", errs.BadCartRequest(), body)
+				}
+			},
+		},
+		{
+			name: "Fail - Cart Not Found",
+			url:  "/api/v1/carts/" + cartID.String() + "/discount",
+			buildStubs: func(ms *mocks.MockService) {
+				ms.EXPECT().
+					CalculateDiscount(gomock.Any(), cartID).
+					Return(nil, errs.ErrCartNotFound).
+					Times(1)
+			},
+			expectedStatus: http.StatusNotFound,
+			checkResponse: func(t *testing.T, body []byte) {
+				if !bytes.Equal(body, errs.CartNotFound()) {
+					t.Errorf("Expected body %s, got %s", errs.CartNotFound(), body)
+				}
+			},
+		},
+		{
+			name: "Fail - Database / Internal Error",
+			url:  "/api/v1/carts/" + cartID.String() + "/discount",
+			buildStubs: func(ms *mocks.MockService) {
+				ms.EXPECT().
+					CalculateDiscount(gomock.Any(), cartID).
+					Return(nil, errors.New("db error")).
+					Times(1)
+			},
+			expectedStatus: http.StatusInternalServerError,
+			checkResponse: func(t *testing.T, body []byte) {
+				assert.Empty(t, body)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockSvc := mocks.NewMockService(ctrl)
+			tt.buildStubs(mockSvc)
+
+			h := handlers.NewCartHandler(mockSvc, discardLogger)
+
+			router := http.NewServeMux()
+			router.HandleFunc("GET /api/v1/carts/{cart_id}/discount", h.CalculateDiscount)
+
+			req := httptest.NewRequest(http.MethodGet, tt.url, nil)
 			rec := httptest.NewRecorder()
 
 			router.ServeHTTP(rec, req)

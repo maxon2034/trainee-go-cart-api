@@ -264,3 +264,40 @@ func (h *CartHandler) DeleteItem(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 	h.logger.Info("deleted item", slog.Any("cartItem", cartItemID))
 }
+
+func (h *CartHandler) CalculateDiscount(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), time.Second*5)
+	defer cancel()
+
+	cartID := r.PathValue("cart_id")
+	cartUUID, err := uuid.Parse(cartID)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write(errs.BadCartRequest())
+		h.logger.Error("error in parsing uuid", slog.Any("error", err))
+		return
+	}
+
+	cartDiscount, err := h.service.CalculateDiscount(ctx, cartUUID)
+	if err != nil {
+		if errors.Is(err, errs.ErrCartNotFound) {
+			w.WriteHeader(http.StatusNotFound)
+			w.Write(errs.CartNotFound())
+			h.logger.Info("cart not found", slog.Any("id", cartUUID.String()))
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		h.logger.Error("error in calculating price", slog.Any("error", err))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(cartDiscount); err != nil {
+		h.logger.Error("error in forming response", slog.Any("error", err))
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write(errs.InternalServerError())
+		return
+	}
+	h.logger.Info("calculated price", slog.Any("cart", cartDiscount))
+}

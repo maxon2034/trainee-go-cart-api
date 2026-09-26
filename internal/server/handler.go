@@ -8,5 +8,5 @@ type Handler interface {
 	AddItem(http.ResponseWriter, *http.Request)
 	UpdateItem(http.ResponseWriter, *http.Request)
 	DeleteItem(http.ResponseWriter, *http.Request)
-	//Calculate(http.ResponseWriter, *http.Request)
+	CalculateDiscount(http.ResponseWriter, *http.Request)
 }
