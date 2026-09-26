@@ -395,3 +395,65 @@ func TestCartService_UpdateCartItem(t *testing.T) {
 		assert.Empty(t, itemDTO)
 	})
 }
+
+func TestCartService_RemoveItem(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		mockRepo := mocks.NewMockRepository(ctrl)
+		cartService := service.New(mockRepo)
+
+		itemID := uuid.New()
+
+		mockRepo.EXPECT().
+			RemoveCartItem(gomock.Any(), itemID).
+			Return(nil).
+			Times(1)
+
+		err := cartService.RemoveItem(context.Background(), itemID)
+
+		require.NoError(t, err)
+	})
+
+	t.Run("error - cart item not found", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		mockRepo := mocks.NewMockRepository(ctrl)
+		cartService := service.New(mockRepo)
+
+		nonExistentID := uuid.New()
+
+		mockRepo.EXPECT().
+			RemoveCartItem(gomock.Any(), nonExistentID).
+			Return(errs.ErrCartItemNotFound).
+			Times(1)
+
+		err := cartService.RemoveItem(context.Background(), nonExistentID)
+
+		require.Error(t, err)
+		assert.ErrorIs(t, err, errs.ErrCartItemNotFound)
+	})
+
+	t.Run("repository error", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		mockRepo := mocks.NewMockRepository(ctrl)
+		cartService := service.New(mockRepo)
+
+		itemID := uuid.New()
+		expectedErr := errors.New("unexpected database error")
+
+		mockRepo.EXPECT().
+			RemoveCartItem(gomock.Any(), itemID).
+			Return(expectedErr).
+			Times(1)
+
+		err := cartService.RemoveItem(context.Background(), itemID)
+
+		require.Error(t, err)
+		assert.ErrorIs(t, err, expectedErr)
+	})
+}

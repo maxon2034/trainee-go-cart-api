@@ -75,10 +75,16 @@ func (s *CartService) UpdateCartItem(ctx context.Context, ID uuid.UUID, newProdu
 	return cartItemDTO, nil
 }
 
-//func (s *CartService) RemoveItem() {
-//	//TODO implement me
-//	panic("implement me")
-//}
+func (s *CartService) RemoveItem(ctx context.Context, itemID uuid.UUID) error {
+	err := s.repo.RemoveCartItem(ctx, itemID)
+	if err != nil {
+		if errors.Is(err, errs.ErrCartItemNotFound) {
+			return errs.ErrCartItemNotFound
+		}
+		return fmt.Errorf("s.RemoveItem: %w", err)
+	}
+	return nil
+}
 
 //func (s *CartService) CalculatePrice() {
 //	//TODO implement me
