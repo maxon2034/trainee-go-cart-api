@@ -193,7 +193,11 @@ func (r *CartRepository) CalculateDiscount(ctx context.Context, cartID uuid.UUID
 	err = r.db.SelectContext(ctx, &prices, q, cartID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, errs.ErrEmptyCart
+			return &entity.CartDiscount{
+				CartID:          cartID,
+				TotalPrice:      0,
+				DiscountPercent: 0,
+				FinalPrice:      0}, nil
 		}
 		return nil, fmt.Errorf("r.RemoveCartItem: %w", err)
 	}
