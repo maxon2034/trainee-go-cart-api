@@ -26,13 +26,13 @@ func (r *CartRepository) AddCart(ctx context.Context) (*entity.Cart, error) {
 	return &cart, nil
 }
 
-func (r *CartRepository) GetCart(ctx context.Context, id uuid.UUID) (*entity.Cart, error) {
+func (r *CartRepository) GetCart(ctx context.Context, cartID uuid.UUID) (*entity.Cart, error) {
 	var cart entity.Cart
 	var cartDBO CartDBO
 	var cartItemsDBO []CartItemDBO
 
 	q := `SELECT id FROM carts WHERE id = $1`
-	err := r.db.GetContext(ctx, &cartDBO.ID, q, id)
+	err := r.db.GetContext(ctx, &cartDBO.ID, q, cartID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, errs.ErrCartNotFound
@@ -42,7 +42,7 @@ func (r *CartRepository) GetCart(ctx context.Context, id uuid.UUID) (*entity.Car
 	cart.ID = cartDBO.ID
 
 	q = `SELECT id,product,price FROM cart_items WHERE cart_id=$1`
-	if err := r.db.SelectContext(ctx, &cartItemsDBO, q, id); err != nil {
+	if err := r.db.SelectContext(ctx, &cartItemsDBO, q, cartID); err != nil {
 		return nil, fmt.Errorf("r.GetCart: %w", err)
 	}
 	for _, item := range cartItemsDBO {
