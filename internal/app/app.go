@@ -21,34 +21,34 @@ var cfgPath string = "config/"
 func Run(ctx context.Context) {
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
-		log.Print("error in loading config", slog.Any("error", err))
+		log.Panicf("load config: %v", err)
 		return
 	}
 
 	logger, err := logger.New(cfg)
 	if err != nil {
-		log.Print("error in initializing logger", slog.Any("error", err))
+		log.Panicf("init logger: %v", err)
 		return
 	}
 
 	DB, err := postgres.New(ctx, cfg.DB.DSN)
 	if err != nil {
-		logger.Error("error in connecting to database", slog.Any("error", err))
-		return
+		logger.Error("connect to database", slog.Any("error", err))
+		panic(err)
 	}
 	defer DB.Close()
 
 	err = postgres.RunMigrations(DB)
 	if err != nil {
-		logger.Error("error in running migrations", slog.Any("error", err))
-		return
+		logger.Error("run migrations", slog.Any("error", err))
+		panic(err)
 	}
 
 	repo := repository.New(DB)
 
-	service := service.New(repo)
+	service := service.New(repo, logger)
 
-	handler := handlers.NewCartHandler(service, logger)
+	handler := handlers.NewCartHandler(service, logger, cfg.Server)
 
 	server := server.New(cfg.Server, logger)
 	server.RegisterRoutes(handler)
@@ -61,7 +61,6 @@ func Run(ctx context.Context) {
 			logger.Info("server closed")
 			return
 		}
-		logger.Error("errs in running server", slog.Any("errs", err))
+		logger.Error("server run", slog.Any("error", err))
 	}
-
 }
