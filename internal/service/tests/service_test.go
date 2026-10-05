@@ -7,24 +7,40 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/maxon2034/trainee-go-cart-api/internal/config"
 	"github.com/maxon2034/trainee-go-cart-api/internal/entity"
 	"github.com/maxon2034/trainee-go-cart-api/internal/errs"
 	"github.com/maxon2034/trainee-go-cart-api/internal/service"
 	"github.com/maxon2034/trainee-go-cart-api/mocks"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
-func TestCartService_CreateCart(t *testing.T) {
-	logger := slog.New(slog.DiscardHandler)
+func newTestService(repo service.Repository) *service.CartService {
+	cfg := config.CartConfig{
+		DiscountPercentBig:   0.1,
+		DiscountPercentSmall: 0.05,
+		DiscountTotalPrice:   decimal.NewFromInt(5000),
+		DiscountItemAmount:   3,
+	}
 
+	return service.New(repo, slog.New(slog.DiscardHandler), cfg)
+}
+
+func assertDecimalEqual(t *testing.T, expected, actual decimal.Decimal) {
+	t.Helper()
+	assert.Truef(t, expected.Equal(actual), "expected %s, got %s", expected, actual)
+}
+
+func TestCartService_CreateCart(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
 		mockRepo := mocks.NewMockRepository(ctrl)
-		cartService := service.New(mockRepo, logger)
+		cartService := newTestService(mockRepo)
 
 		expectedID := uuid.New()
 		expectedCart := &entity.Cart{
@@ -50,7 +66,7 @@ func TestCartService_CreateCart(t *testing.T) {
 		defer ctrl.Finish()
 
 		mockRepo := mocks.NewMockRepository(ctrl)
-		cartService := service.New(mockRepo, logger)
+		cartService := newTestService(mockRepo)
 
 		expectedErr := errors.New("db insert error")
 
@@ -67,29 +83,28 @@ func TestCartService_CreateCart(t *testing.T) {
 		assert.ErrorContains(t, err, "s.CreateCart")
 	})
 }
-func TestCartService_ViewCart(t *testing.T) {
-	logger := slog.New(slog.DiscardHandler)
 
+func TestCartService_ViewCart(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
 		mockRepo := mocks.NewMockRepository(ctrl)
-		cartService := service.New(mockRepo, logger)
+		cartService := newTestService(mockRepo)
 
 		cartID := uuid.New()
 		itemID := uuid.New()
 		product := "Headphones"
-		price := 120.50
+		price := decimal.RequireFromString("120.50")
 
 		expectedCart := &entity.Cart{
 			ID: cartID,
 			Items: []entity.CartItem{
 				{
-					ID:      &itemID,
+					ID:      itemID,
 					CartID:  cartID,
-					Product: &product,
-					Price:   &price,
+					Product: product,
+					Price:   price,
 				},
 			},
 		}
@@ -106,12 +121,10 @@ func TestCartService_ViewCart(t *testing.T) {
 		assert.Equal(t, cartID, cartDTO.ID)
 		require.Len(t, cartDTO.Items, 1)
 
-		require.NotNil(t, cartDTO.Items[0].ID)
-		assert.Equal(t, itemID, *cartDTO.Items[0].ID)
-		require.NotNil(t, cartDTO.Items[0].Product)
-		assert.Equal(t, "Headphones", *cartDTO.Items[0].Product)
-		require.NotNil(t, cartDTO.Items[0].Price)
-		assert.Equal(t, 120.50, *cartDTO.Items[0].Price)
+		assert.Equal(t, itemID, cartDTO.Items[0].ID)
+		assert.Equal(t, cartID, cartDTO.Items[0].CartID)
+		assert.Equal(t, product, cartDTO.Items[0].Product)
+		assertDecimalEqual(t, price, cartDTO.Items[0].Price)
 	})
 
 	t.Run("cart not found", func(t *testing.T) {
@@ -119,7 +132,7 @@ func TestCartService_ViewCart(t *testing.T) {
 		defer ctrl.Finish()
 
 		mockRepo := mocks.NewMockRepository(ctrl)
-		cartService := service.New(mockRepo, logger)
+		cartService := newTestService(mockRepo)
 
 		cartID := uuid.New()
 
@@ -141,7 +154,7 @@ func TestCartService_ViewCart(t *testing.T) {
 		defer ctrl.Finish()
 
 		mockRepo := mocks.NewMockRepository(ctrl)
-		cartService := service.New(mockRepo, logger)
+		cartService := newTestService(mockRepo)
 
 		cartID := uuid.New()
 		expectedErr := errors.New("db connection timeout")
@@ -159,26 +172,25 @@ func TestCartService_ViewCart(t *testing.T) {
 		assert.Nil(t, cartDTO)
 	})
 }
-func TestCartService_AddItem(t *testing.T) {
-	logger := slog.New(slog.DiscardHandler)
 
+func TestCartService_AddItem(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
 		mockRepo := mocks.NewMockRepository(ctrl)
-		cartService := service.New(mockRepo, logger)
+		cartService := newTestService(mockRepo)
 
 		cartID := uuid.New()
 		itemID := uuid.New()
 		product := "Mechanical Keyboard"
-		price := 150.00
+		price := decimal.RequireFromString("150.00")
 
 		expectedEntityItem := &entity.CartItem{
-			ID:      &itemID,
+			ID:      itemID,
 			CartID:  cartID,
-			Product: &product,
-			Price:   &price,
+			Product: product,
+			Price:   price,
 		}
 
 		mockRepo.EXPECT().
@@ -190,13 +202,10 @@ func TestCartService_AddItem(t *testing.T) {
 
 		require.NoError(t, err)
 		require.NotNil(t, itemDTO)
-		require.NotNil(t, itemDTO.ID)
-		assert.Equal(t, itemID, *itemDTO.ID)
+		assert.Equal(t, itemID, itemDTO.ID)
 		assert.Equal(t, cartID, itemDTO.CartID)
-		require.NotNil(t, itemDTO.Product)
-		assert.Equal(t, product, *itemDTO.Product)
-		require.NotNil(t, itemDTO.Price)
-		assert.Equal(t, price, *itemDTO.Price)
+		assert.Equal(t, product, itemDTO.Product)
+		assertDecimalEqual(t, price, itemDTO.Price)
 	})
 
 	t.Run("error - full cart", func(t *testing.T) {
@@ -204,11 +213,11 @@ func TestCartService_AddItem(t *testing.T) {
 		defer ctrl.Finish()
 
 		mockRepo := mocks.NewMockRepository(ctrl)
-		cartService := service.New(mockRepo, logger)
+		cartService := newTestService(mockRepo)
 
 		cartID := uuid.New()
 		product := "Mouse"
-		price := 50.00
+		price := decimal.RequireFromString("50.00")
 
 		mockRepo.EXPECT().
 			AddCartItem(gomock.Any(), cartID, product, price, service.ItemLimit).
@@ -228,17 +237,18 @@ func TestCartService_AddItem(t *testing.T) {
 		defer ctrl.Finish()
 
 		mockRepo := mocks.NewMockRepository(ctrl)
-		cartService := service.New(mockRepo, logger)
+		cartService := newTestService(mockRepo)
 
 		cartID := uuid.New()
+		price := decimal.RequireFromString("300.00")
 		expectedErr := errors.New("db connection lost")
 
 		mockRepo.EXPECT().
-			AddCartItem(gomock.Any(), cartID, "Monitor", 300.00, service.ItemLimit).
+			AddCartItem(gomock.Any(), cartID, "Monitor", price, service.ItemLimit).
 			Return(nil, expectedErr).
 			Times(1)
 
-		itemDTO, err := cartService.AddItem(context.Background(), cartID, "Monitor", 300.00)
+		itemDTO, err := cartService.AddItem(context.Background(), cartID, "Monitor", price)
 
 		require.Error(t, err)
 		assert.ErrorIs(t, err, expectedErr)
@@ -246,26 +256,25 @@ func TestCartService_AddItem(t *testing.T) {
 		assert.Nil(t, itemDTO)
 	})
 }
-func TestCartService_UpdateCartItem(t *testing.T) {
-	logger := slog.New(slog.DiscardHandler)
 
+func TestCartService_UpdateCartItem(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
 		mockRepo := mocks.NewMockRepository(ctrl)
-		cartService := service.New(mockRepo, logger)
+		cartService := newTestService(mockRepo)
 
 		cartID := uuid.New()
 		itemID := uuid.New()
 		product := "Shoes"
-		newPrice := 5000.50
+		newPrice := decimal.RequireFromString("5000.50")
 
 		expectedEntityItem := &entity.CartItem{
-			ID:      &itemID,
+			ID:      itemID,
 			CartID:  cartID,
-			Product: &product,
-			Price:   &newPrice,
+			Product: product,
+			Price:   newPrice,
 		}
 
 		mockRepo.EXPECT().
@@ -277,13 +286,10 @@ func TestCartService_UpdateCartItem(t *testing.T) {
 
 		require.NoError(t, err)
 		require.NotNil(t, itemDTO)
-		require.NotNil(t, itemDTO.ID)
-		assert.Equal(t, itemID, *itemDTO.ID)
+		assert.Equal(t, itemID, itemDTO.ID)
 		assert.Equal(t, cartID, itemDTO.CartID)
-		require.NotNil(t, itemDTO.Product)
-		assert.Equal(t, product, *itemDTO.Product)
-		require.NotNil(t, itemDTO.Price)
-		assert.Equal(t, newPrice, *itemDTO.Price)
+		assert.Equal(t, product, itemDTO.Product)
+		assertDecimalEqual(t, newPrice, itemDTO.Price)
 	})
 
 	t.Run("error - cart not found", func(t *testing.T) {
@@ -291,12 +297,12 @@ func TestCartService_UpdateCartItem(t *testing.T) {
 		defer ctrl.Finish()
 
 		mockRepo := mocks.NewMockRepository(ctrl)
-		cartService := service.New(mockRepo, logger)
+		cartService := newTestService(mockRepo)
 
 		nonExistentCartID := uuid.New()
 		itemID := uuid.New()
 		product := "Shoes"
-		newPrice := 5000.50
+		newPrice := decimal.RequireFromString("5000.50")
 
 		mockRepo.EXPECT().
 			UpdateCartItem(gomock.Any(), nonExistentCartID, itemID, product, newPrice).
@@ -316,12 +322,12 @@ func TestCartService_UpdateCartItem(t *testing.T) {
 		defer ctrl.Finish()
 
 		mockRepo := mocks.NewMockRepository(ctrl)
-		cartService := service.New(mockRepo, logger)
+		cartService := newTestService(mockRepo)
 
 		cartID := uuid.New()
 		nonExistentItemID := uuid.New()
 		product := "NonExistentShoes"
-		newPrice := 5000.50
+		newPrice := decimal.RequireFromString("5000.50")
 
 		mockRepo.EXPECT().
 			UpdateCartItem(gomock.Any(), cartID, nonExistentItemID, product, newPrice).
@@ -341,12 +347,12 @@ func TestCartService_UpdateCartItem(t *testing.T) {
 		defer ctrl.Finish()
 
 		mockRepo := mocks.NewMockRepository(ctrl)
-		cartService := service.New(mockRepo, logger)
+		cartService := newTestService(mockRepo)
 
 		cartID := uuid.New()
 		itemID := uuid.New()
 		product := "Shoes"
-		newPrice := 5000.50
+		newPrice := decimal.RequireFromString("5000.50")
 		expectedErr := errors.New("db query failed")
 
 		mockRepo.EXPECT().
@@ -362,15 +368,14 @@ func TestCartService_UpdateCartItem(t *testing.T) {
 		assert.Nil(t, itemDTO)
 	})
 }
-func TestCartService_RemoveItem(t *testing.T) {
-	logger := slog.New(slog.DiscardHandler)
 
+func TestCartService_RemoveItem(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
 		mockRepo := mocks.NewMockRepository(ctrl)
-		cartService := service.New(mockRepo, logger)
+		cartService := newTestService(mockRepo)
 
 		cartID := uuid.New()
 		itemID := uuid.New()
@@ -390,7 +395,7 @@ func TestCartService_RemoveItem(t *testing.T) {
 		defer ctrl.Finish()
 
 		mockRepo := mocks.NewMockRepository(ctrl)
-		cartService := service.New(mockRepo, logger)
+		cartService := newTestService(mockRepo)
 
 		nonExistentCartID := uuid.New()
 		itemID := uuid.New()
@@ -412,7 +417,7 @@ func TestCartService_RemoveItem(t *testing.T) {
 		defer ctrl.Finish()
 
 		mockRepo := mocks.NewMockRepository(ctrl)
-		cartService := service.New(mockRepo, logger)
+		cartService := newTestService(mockRepo)
 
 		cartID := uuid.New()
 		nonExistentItemID := uuid.New()
@@ -434,7 +439,7 @@ func TestCartService_RemoveItem(t *testing.T) {
 		defer ctrl.Finish()
 
 		mockRepo := mocks.NewMockRepository(ctrl)
-		cartService := service.New(mockRepo, logger)
+		cartService := newTestService(mockRepo)
 
 		cartID := uuid.New()
 		itemID := uuid.New()
@@ -454,21 +459,19 @@ func TestCartService_RemoveItem(t *testing.T) {
 }
 
 func TestCartService_CalculateDiscount(t *testing.T) {
-	logger := slog.New(slog.DiscardHandler)
-
 	t.Run("success - discount 10% (price > 5000, items <= 3)", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
 		mockRepo := mocks.NewMockRepository(ctrl)
-		cartService := service.New(mockRepo, logger)
+		cartService := newTestService(mockRepo)
 
 		cartID := uuid.New()
-		price := 6000.0
+		price := decimal.RequireFromString("6000")
 		expectedCart := &entity.Cart{
 			ID: cartID,
 			Items: []entity.CartItem{
-				{Price: &price},
+				{Price: price},
 			},
 		}
 
@@ -477,13 +480,12 @@ func TestCartService_CalculateDiscount(t *testing.T) {
 			Return(expectedCart, nil).
 			Times(1)
 
-		id, total, percent, final, err := cartService.CalculateDiscount(context.Background(), cartID)
+		discount, err := cartService.CalculateDiscount(context.Background(), cartID)
 
 		require.NoError(t, err)
-		assert.Equal(t, cartID, id)
-		assert.Equal(t, 6000.0, total)
-		assert.Equal(t, 0.1, percent)
-		assert.Equal(t, 5400.0, final)
+		require.NotNil(t, discount)
+		assertDecimalEqual(t, decimal.RequireFromString("6000"), discount.TotalPrice)
+		assertDecimalEqual(t, decimal.RequireFromString("5400"), discount.FinalPrice)
 	})
 
 	t.Run("success - discount 5% (price <= 5000, items > 3)", func(t *testing.T) {
@@ -491,17 +493,17 @@ func TestCartService_CalculateDiscount(t *testing.T) {
 		defer ctrl.Finish()
 
 		mockRepo := mocks.NewMockRepository(ctrl)
-		cartService := service.New(mockRepo, logger)
+		cartService := newTestService(mockRepo)
 
 		cartID := uuid.New()
-		price := 1000.0
+		price := decimal.RequireFromString("1000")
 		expectedCart := &entity.Cart{
 			ID: cartID,
 			Items: []entity.CartItem{
-				{Price: &price},
-				{Price: &price},
-				{Price: &price},
-				{Price: &price},
+				{Price: price},
+				{Price: price},
+				{Price: price},
+				{Price: price},
 			},
 		}
 
@@ -510,13 +512,12 @@ func TestCartService_CalculateDiscount(t *testing.T) {
 			Return(expectedCart, nil).
 			Times(1)
 
-		id, total, percent, final, err := cartService.CalculateDiscount(context.Background(), cartID)
+		discount, err := cartService.CalculateDiscount(context.Background(), cartID)
 
 		require.NoError(t, err)
-		assert.Equal(t, cartID, id)
-		assert.Equal(t, 4000.0, total)
-		assert.Equal(t, 0.05, percent)
-		assert.Equal(t, 3800.0, final)
+		require.NotNil(t, discount)
+		assertDecimalEqual(t, decimal.RequireFromString("4000"), discount.TotalPrice)
+		assertDecimalEqual(t, decimal.RequireFromString("3800"), discount.FinalPrice)
 	})
 
 	t.Run("success - combined condition discount 10% (price > 5000 AND items > 3)", func(t *testing.T) {
@@ -524,17 +525,17 @@ func TestCartService_CalculateDiscount(t *testing.T) {
 		defer ctrl.Finish()
 
 		mockRepo := mocks.NewMockRepository(ctrl)
-		cartService := service.New(mockRepo, logger)
+		cartService := newTestService(mockRepo)
 
 		cartID := uuid.New()
-		price := 1500.0
+		price := decimal.RequireFromString("1500")
 		expectedCart := &entity.Cart{
 			ID: cartID,
 			Items: []entity.CartItem{
-				{Price: &price},
-				{Price: &price},
-				{Price: &price},
-				{Price: &price},
+				{Price: price},
+				{Price: price},
+				{Price: price},
+				{Price: price},
 			},
 		}
 
@@ -543,13 +544,70 @@ func TestCartService_CalculateDiscount(t *testing.T) {
 			Return(expectedCart, nil).
 			Times(1)
 
-		id, total, percent, final, err := cartService.CalculateDiscount(context.Background(), cartID)
+		discount, err := cartService.CalculateDiscount(context.Background(), cartID)
 
 		require.NoError(t, err)
-		assert.Equal(t, cartID, id)
-		assert.Equal(t, 6000.0, total)
-		assert.Equal(t, 0.1, percent)
-		assert.Equal(t, 5400.0, final)
+		require.NotNil(t, discount)
+		assertDecimalEqual(t, decimal.RequireFromString("6000"), discount.TotalPrice)
+		assertDecimalEqual(t, decimal.RequireFromString("5400"), discount.FinalPrice)
+	})
+
+	t.Run("success - total just above threshold is discounted without precision loss", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		mockRepo := mocks.NewMockRepository(ctrl)
+		cartService := newTestService(mockRepo)
+
+		cartID := uuid.New()
+		expectedCart := &entity.Cart{
+			ID: cartID,
+			Items: []entity.CartItem{
+				{Price: decimal.RequireFromString("5000.01")},
+			},
+		}
+
+		mockRepo.EXPECT().
+			GetCart(gomock.Any(), cartID).
+			Return(expectedCart, nil).
+			Times(1)
+
+		discount, err := cartService.CalculateDiscount(context.Background(), cartID)
+
+		require.NoError(t, err)
+		require.NotNil(t, discount)
+		assertDecimalEqual(t, decimal.RequireFromString("5000.01"), discount.TotalPrice)
+		assertDecimalEqual(t, decimal.RequireFromString("4500.009"), discount.FinalPrice)
+	})
+
+	t.Run("success - no discount at boundaries (price == 5000, items == 3)", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		mockRepo := mocks.NewMockRepository(ctrl)
+		cartService := newTestService(mockRepo)
+
+		cartID := uuid.New()
+		expectedCart := &entity.Cart{
+			ID: cartID,
+			Items: []entity.CartItem{
+				{Price: decimal.RequireFromString("2000")},
+				{Price: decimal.RequireFromString("2000")},
+				{Price: decimal.RequireFromString("1000")},
+			},
+		}
+
+		mockRepo.EXPECT().
+			GetCart(gomock.Any(), cartID).
+			Return(expectedCart, nil).
+			Times(1)
+
+		discount, err := cartService.CalculateDiscount(context.Background(), cartID)
+
+		require.NoError(t, err)
+		require.NotNil(t, discount)
+		assertDecimalEqual(t, decimal.RequireFromString("5000"), discount.TotalPrice)
+		assertDecimalEqual(t, decimal.RequireFromString("5000"), discount.FinalPrice)
 	})
 
 	t.Run("success - empty cart returns zero discount", func(t *testing.T) {
@@ -557,7 +615,7 @@ func TestCartService_CalculateDiscount(t *testing.T) {
 		defer ctrl.Finish()
 
 		mockRepo := mocks.NewMockRepository(ctrl)
-		cartService := service.New(mockRepo, logger)
+		cartService := newTestService(mockRepo)
 
 		cartID := uuid.New()
 		expectedCart := &entity.Cart{
@@ -570,13 +628,12 @@ func TestCartService_CalculateDiscount(t *testing.T) {
 			Return(expectedCart, nil).
 			Times(1)
 
-		id, total, percent, final, err := cartService.CalculateDiscount(context.Background(), cartID)
+		discount, err := cartService.CalculateDiscount(context.Background(), cartID)
 
 		require.NoError(t, err)
-		assert.Equal(t, cartID, id)
-		assert.Equal(t, 0.0, total)
-		assert.Equal(t, 0.0, percent)
-		assert.Equal(t, 0.0, final)
+		require.NotNil(t, discount)
+		assertDecimalEqual(t, decimal.Zero, discount.TotalPrice)
+		assertDecimalEqual(t, decimal.Zero, discount.FinalPrice)
 	})
 
 	t.Run("error - cart not found", func(t *testing.T) {
@@ -584,7 +641,7 @@ func TestCartService_CalculateDiscount(t *testing.T) {
 		defer ctrl.Finish()
 
 		mockRepo := mocks.NewMockRepository(ctrl)
-		cartService := service.New(mockRepo, logger)
+		cartService := newTestService(mockRepo)
 
 		nonExistentCartID := uuid.New()
 
@@ -593,15 +650,12 @@ func TestCartService_CalculateDiscount(t *testing.T) {
 			Return(nil, errs.ErrCartNotFound).
 			Times(1)
 
-		id, total, percent, final, err := cartService.CalculateDiscount(context.Background(), nonExistentCartID)
+		discount, err := cartService.CalculateDiscount(context.Background(), nonExistentCartID)
 
 		require.Error(t, err)
 		assert.ErrorIs(t, err, errs.ErrCartNotFound)
 		assert.ErrorContains(t, err, "s.CalculateDiscount")
-		assert.Equal(t, uuid.Nil, id)
-		assert.Equal(t, 0.0, total)
-		assert.Equal(t, 0.0, percent)
-		assert.Equal(t, 0.0, final)
+		assert.Nil(t, discount)
 	})
 
 	t.Run("repository error", func(t *testing.T) {
@@ -609,7 +663,7 @@ func TestCartService_CalculateDiscount(t *testing.T) {
 		defer ctrl.Finish()
 
 		mockRepo := mocks.NewMockRepository(ctrl)
-		cartService := service.New(mockRepo, logger)
+		cartService := newTestService(mockRepo)
 
 		cartID := uuid.New()
 		expectedErr := errors.New("unexpected database error")
@@ -619,14 +673,11 @@ func TestCartService_CalculateDiscount(t *testing.T) {
 			Return(nil, expectedErr).
 			Times(1)
 
-		id, total, percent, final, err := cartService.CalculateDiscount(context.Background(), cartID)
+		discount, err := cartService.CalculateDiscount(context.Background(), cartID)
 
 		require.Error(t, err)
 		assert.ErrorIs(t, err, expectedErr)
 		assert.ErrorContains(t, err, "s.CalculateDiscount")
-		assert.Equal(t, uuid.Nil, id)
-		assert.Equal(t, 0.0, total)
-		assert.Equal(t, 0.0, percent)
-		assert.Equal(t, 0.0, final)
+		assert.Nil(t, discount)
 	})
 }

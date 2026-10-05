@@ -15,11 +15,29 @@ import (
 	"github.com/maxon2034/trainee-go-cart-api/internal/config"
 	"github.com/maxon2034/trainee-go-cart-api/internal/entity"
 	"github.com/maxon2034/trainee-go-cart-api/internal/handlers"
+	"github.com/shopspring/decimal"
 	"go.uber.org/mock/gomock"
 
 	"github.com/maxon2034/trainee-go-cart-api/internal/errs"
 	"github.com/maxon2034/trainee-go-cart-api/mocks"
 )
+
+// decimalMatcher сравнивает decimal по значению. gomock.Eq использует reflect.DeepEqual,
+// который различает 100.0 и 100 из-за разного внутреннего представления (value и exp).
+type decimalMatcher struct{ expected decimal.Decimal }
+
+func (m decimalMatcher) Matches(x any) bool {
+	d, ok := x.(decimal.Decimal)
+	return ok && m.expected.Equal(d)
+}
+
+func (m decimalMatcher) String() string {
+	return "is equal to decimal " + m.expected.String()
+}
+
+func decimalEq(s string) gomock.Matcher {
+	return decimalMatcher{expected: decimal.RequireFromString(s)}
+}
 
 func TestCartHandler_Create(t *testing.T) {
 	discardLogger := slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -118,9 +136,9 @@ func TestCartHandler_View(t *testing.T) {
 	itemID1 := uuid.New()
 	itemID2 := uuid.New()
 	product1 := "Shoes"
-	price1 := 2500.50
+	price1 := decimal.RequireFromString("2500.50")
 	product2 := "Socks"
-	price2 := 1200.00
+	price2 := decimal.RequireFromString("1200.00")
 
 	tests := []struct {
 		name           string
@@ -138,8 +156,8 @@ func TestCartHandler_View(t *testing.T) {
 					Return(&entity.Cart{
 						ID: cartID,
 						Items: []entity.CartItem{
-							{ID: &itemID1, CartID: cartID, Product: &product1, Price: &price1},
-							{ID: &itemID2, CartID: cartID, Product: &product2, Price: &price2},
+							{ID: itemID1, CartID: cartID, Product: product1, Price: price1},
+							{ID: itemID2, CartID: cartID, Product: product2, Price: price2},
 						},
 					}, nil).
 					Times(1)
@@ -158,6 +176,9 @@ func TestCartHandler_View(t *testing.T) {
 				}
 				if res.Items[0].Product != "Shoes" || res.Items[1].Product != "Socks" {
 					t.Errorf("Items payload mismatched: %+v", res.Items)
+				}
+				if !res.Items[0].Price.Equal(price1) || !res.Items[1].Price.Equal(price2) {
+					t.Errorf("Items prices mismatched: %+v", res.Items)
 				}
 			},
 		},
@@ -238,7 +259,7 @@ func TestCartHandler_AddItem(t *testing.T) {
 	cartID := uuid.New()
 	itemID := uuid.New()
 	product := "Shoes"
-	price := 2500.50
+	price := decimal.RequireFromString("2500.50")
 
 	tests := []struct {
 		name           string
@@ -254,12 +275,12 @@ func TestCartHandler_AddItem(t *testing.T) {
 			body: `{"product": "Shoes", "price": 2500.50}`,
 			buildStubs: func(ms *mocks.MockService) {
 				ms.EXPECT().
-					AddItem(gomock.Any(), cartID, "Shoes", 2500.50).
+					AddItem(gomock.Any(), cartID, "Shoes", decimalEq("2500.50")).
 					Return(&entity.CartItem{
-						ID:      &itemID,
+						ID:      itemID,
 						CartID:  cartID,
-						Product: &product,
-						Price:   &price,
+						Product: product,
+						Price:   price,
 					}, nil).
 					Times(1)
 			},
@@ -269,7 +290,7 @@ func TestCartHandler_AddItem(t *testing.T) {
 				if err := json.Unmarshal(body, &res); err != nil {
 					t.Fatalf("Failed to decode response JSON: %v", err)
 				}
-				if res.ID != itemID || res.CartID != cartID || res.Product != "Shoes" || res.Price != 2500.50 {
+				if res.ID != itemID || res.CartID != cartID || res.Product != "Shoes" || !res.Price.Equal(price) {
 					t.Errorf("Unexpected response data: %+v", res)
 				}
 			},
@@ -312,7 +333,7 @@ func TestCartHandler_AddItem(t *testing.T) {
 			body: `{"product": "Shoes", "price": 2500.50}`,
 			buildStubs: func(ms *mocks.MockService) {
 				ms.EXPECT().
-					AddItem(gomock.Any(), cartID, "Shoes", 2500.50).
+					AddItem(gomock.Any(), cartID, "Shoes", decimalEq("2500.50")).
 					Return(nil, errs.ErrCartNotFound).
 					Times(1)
 			},
@@ -333,7 +354,7 @@ func TestCartHandler_AddItem(t *testing.T) {
 			body: `{"product": "Socks", "price": 100.0}`,
 			buildStubs: func(ms *mocks.MockService) {
 				ms.EXPECT().
-					AddItem(gomock.Any(), cartID, "Socks", 100.0).
+					AddItem(gomock.Any(), cartID, "Socks", decimalEq("100.0")).
 					Return(nil, errs.ErrFullCart).
 					Times(1)
 			},
@@ -386,7 +407,7 @@ func TestCartHandler_AddItem(t *testing.T) {
 			body: `{"product": "Shoes", "price": 2500.50}`,
 			buildStubs: func(ms *mocks.MockService) {
 				ms.EXPECT().
-					AddItem(gomock.Any(), cartID, "Shoes", 2500.50).
+					AddItem(gomock.Any(), cartID, "Shoes", decimalEq("2500.50")).
 					Return(nil, errors.New("db connection failure")).
 					Times(1)
 			},
@@ -441,7 +462,7 @@ func TestCartHandler_UpdateItem(t *testing.T) {
 	cartID := uuid.New()
 	itemID := uuid.New()
 	product := "Shoes"
-	price := 5000.50
+	price := decimal.RequireFromString("5000.50")
 
 	tests := []struct {
 		name           string
@@ -457,12 +478,12 @@ func TestCartHandler_UpdateItem(t *testing.T) {
 			body: `{"product": "Shoes", "price": 5000.50}`,
 			buildStubs: func(ms *mocks.MockService) {
 				ms.EXPECT().
-					UpdateCartItem(gomock.Any(), cartID, itemID, "Shoes", 5000.50).
+					UpdateCartItem(gomock.Any(), cartID, itemID, "Shoes", decimalEq("5000.50")).
 					Return(&entity.CartItem{
-						ID:      &itemID,
+						ID:      itemID,
 						CartID:  cartID,
-						Product: &product,
-						Price:   &price,
+						Product: product,
+						Price:   price,
 					}, nil).
 					Times(1)
 			},
@@ -472,8 +493,60 @@ func TestCartHandler_UpdateItem(t *testing.T) {
 				if err := json.Unmarshal(body, &res); err != nil {
 					t.Fatalf("Failed to decode response JSON: %v", err)
 				}
-				if res.ID != itemID || res.CartID != cartID || res.Product != "Shoes" || res.Price != 5000.50 {
+				if res.ID != itemID || res.CartID != cartID || res.Product != "Shoes" || !res.Price.Equal(price) {
 					t.Errorf("Unexpected response data: %+v", res)
+				}
+			},
+		},
+		{
+			name: "Fail - Service Returned Different Product",
+			url:  "/api/v1/carts/" + cartID.String() + "/items/" + itemID.String(),
+			body: `{"product": "Shoes", "price": 5000.50}`,
+			buildStubs: func(ms *mocks.MockService) {
+				ms.EXPECT().
+					UpdateCartItem(gomock.Any(), cartID, itemID, "Shoes", decimalEq("5000.50")).
+					Return(&entity.CartItem{
+						ID:      itemID,
+						CartID:  cartID,
+						Product: "Boots",
+						Price:   price,
+					}, nil).
+					Times(1)
+			},
+			expectedStatus: http.StatusInternalServerError,
+			checkResponse: func(t *testing.T, body []byte) {
+				var res handlers.ErrorResponse
+				if err := json.Unmarshal(body, &res); err != nil {
+					t.Fatalf("Failed to decode error response JSON: %v", err)
+				}
+				if res.Status != "INTERNAL_SERVER_ERROR" {
+					t.Errorf("Expected status INTERNAL_SERVER_ERROR, got %s", res.Status)
+				}
+			},
+		},
+		{
+			name: "Fail - Service Returned Different Price",
+			url:  "/api/v1/carts/" + cartID.String() + "/items/" + itemID.String(),
+			body: `{"product": "Shoes", "price": 5000.50}`,
+			buildStubs: func(ms *mocks.MockService) {
+				ms.EXPECT().
+					UpdateCartItem(gomock.Any(), cartID, itemID, "Shoes", decimalEq("5000.50")).
+					Return(&entity.CartItem{
+						ID:      itemID,
+						CartID:  cartID,
+						Product: product,
+						Price:   decimal.RequireFromString("1.00"),
+					}, nil).
+					Times(1)
+			},
+			expectedStatus: http.StatusInternalServerError,
+			checkResponse: func(t *testing.T, body []byte) {
+				var res handlers.ErrorResponse
+				if err := json.Unmarshal(body, &res); err != nil {
+					t.Fatalf("Failed to decode error response JSON: %v", err)
+				}
+				if res.Status != "INTERNAL_SERVER_ERROR" {
+					t.Errorf("Expected status INTERNAL_SERVER_ERROR, got %s", res.Status)
 				}
 			},
 		},
@@ -531,7 +604,7 @@ func TestCartHandler_UpdateItem(t *testing.T) {
 			body: `{"product": "Shoes", "price": 5000.50}`,
 			buildStubs: func(ms *mocks.MockService) {
 				ms.EXPECT().
-					UpdateCartItem(gomock.Any(), cartID, itemID, "Shoes", 5000.50).
+					UpdateCartItem(gomock.Any(), cartID, itemID, "Shoes", decimalEq("5000.50")).
 					Return(nil, errs.ErrCartNotFound).
 					Times(1)
 			},
@@ -552,7 +625,7 @@ func TestCartHandler_UpdateItem(t *testing.T) {
 			body: `{"product": "Shoes", "price": 5000.50}`,
 			buildStubs: func(ms *mocks.MockService) {
 				ms.EXPECT().
-					UpdateCartItem(gomock.Any(), cartID, itemID, "Shoes", 5000.50).
+					UpdateCartItem(gomock.Any(), cartID, itemID, "Shoes", decimalEq("5000.50")).
 					Return(nil, errs.ErrCartItemNotFound).
 					Times(1)
 			},
@@ -605,7 +678,7 @@ func TestCartHandler_UpdateItem(t *testing.T) {
 			body: `{"product": "Shoes", "price": 5000.50}`,
 			buildStubs: func(ms *mocks.MockService) {
 				ms.EXPECT().
-					UpdateCartItem(gomock.Any(), cartID, itemID, "Shoes", 5000.50).
+					UpdateCartItem(gomock.Any(), cartID, itemID, "Shoes", decimalEq("5000.50")).
 					Return(nil, errors.New("db connection failure")).
 					Times(1)
 			},
@@ -824,7 +897,11 @@ func TestCartHandler_CalculateDiscount(t *testing.T) {
 			buildStubs: func(ms *mocks.MockService) {
 				ms.EXPECT().
 					CalculateDiscount(gomock.Any(), cartID).
-					Return(cartID, 6000.0, 0.1, 5400.0, nil).
+					Return(&entity.CartDiscount{
+						CartID:     cartID,
+						TotalPrice: decimal.RequireFromString("6000"),
+						FinalPrice: decimal.RequireFromString("5400"),
+					}, nil).
 					Times(1)
 			},
 			expectedStatus: http.StatusOK,
@@ -833,7 +910,7 @@ func TestCartHandler_CalculateDiscount(t *testing.T) {
 				if err := json.Unmarshal(body, &res); err != nil {
 					t.Fatalf("Failed to decode response JSON: %v", err)
 				}
-				if res.CartID != cartID || res.TotalPrice != 6000.0 || res.DiscountPercent != 0.1 || res.FinalPrice != 5400.0 {
+				if res.CartID != cartID || !res.TotalPrice.Equal(decimal.RequireFromString("6000")) || !res.FinalPrice.Equal(decimal.RequireFromString("5400")) {
 					t.Errorf("Unexpected response data: %+v", res)
 				}
 			},
@@ -844,7 +921,11 @@ func TestCartHandler_CalculateDiscount(t *testing.T) {
 			buildStubs: func(ms *mocks.MockService) {
 				ms.EXPECT().
 					CalculateDiscount(gomock.Any(), cartID).
-					Return(cartID, 0.0, 0.0, 0.0, nil).
+					Return(&entity.CartDiscount{
+						CartID:     cartID,
+						TotalPrice: decimal.Zero,
+						FinalPrice: decimal.Zero,
+					}, nil).
 					Times(1)
 			},
 			expectedStatus: http.StatusOK,
@@ -853,7 +934,7 @@ func TestCartHandler_CalculateDiscount(t *testing.T) {
 				if err := json.Unmarshal(body, &res); err != nil {
 					t.Fatalf("Failed to decode response JSON: %v", err)
 				}
-				if res.CartID != cartID || res.TotalPrice != 0.0 || res.DiscountPercent != 0.0 || res.FinalPrice != 0.0 {
+				if res.CartID != cartID || !res.TotalPrice.IsZero() || !res.FinalPrice.IsZero() {
 					t.Errorf("Unexpected response data: %+v", res)
 				}
 			},
@@ -879,7 +960,7 @@ func TestCartHandler_CalculateDiscount(t *testing.T) {
 			buildStubs: func(ms *mocks.MockService) {
 				ms.EXPECT().
 					CalculateDiscount(gomock.Any(), cartID).
-					Return(uuid.Nil, 0.0, 0.0, 0.0, errs.ErrCartNotFound).
+					Return(nil, errs.ErrCartNotFound).
 					Times(1)
 			},
 			expectedStatus: http.StatusNotFound,
@@ -899,7 +980,7 @@ func TestCartHandler_CalculateDiscount(t *testing.T) {
 			buildStubs: func(ms *mocks.MockService) {
 				ms.EXPECT().
 					CalculateDiscount(gomock.Any(), cartID).
-					Return(uuid.Nil, 0.0, 0.0, 0.0, errors.New("db error")).
+					Return(nil, errors.New("db error")).
 					Times(1)
 			},
 			expectedStatus: http.StatusInternalServerError,

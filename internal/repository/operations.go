@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/maxon2034/trainee-go-cart-api/internal/entity"
 	"github.com/maxon2034/trainee-go-cart-api/internal/errs"
+	"github.com/shopspring/decimal"
 )
 
 func (r *CartRepository) AddCart(ctx context.Context) (*entity.Cart, error) {
@@ -29,50 +30,62 @@ func (r *CartRepository) GetCart(ctx context.Context, cartID uuid.UUID) (*entity
 	var cart entity.Cart
 	var items []entity.CartItem
 
-	q := `SELECT c.id AS cart_id,
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("r.GetCart: %w", err)
+	}
+	defer tx.Rollback()
+
+	q := `SELECT id FROM carts WHERE id = $1;`
+	err = tx.GetContext(ctx, &cart.ID, q, cartID)
+	if err != nil {
+		tx.Rollback()
+		return nil, errs.ErrCartNotFound
+	}
+	q = `SELECT c.id AS cart_id,
        i.id AS id,
        i.product AS product,
        i.price AS price
 		FROM carts c
 		LEFT JOIN cart_items i ON c.id = i.cart_id
 		WHERE c.id = $1`
-	err := r.db.SelectContext(ctx, &items, q, cartID)
+	err = tx.SelectContext(ctx, &items, q, cartID)
 	if err != nil {
+		if errTx := tx.Rollback(); errTx != nil {
+			return nil, fmt.Errorf("r.GetCart: %w", errTx)
+		}
 		return nil, fmt.Errorf("r.GetCart: %w", err)
 	}
-	if len(items) == 0 {
-		return nil, errs.ErrCartNotFound
-	}
 
-	cart.ID = items[0].CartID
+	cart.Items = append(cart.Items, items...)
 
-	for _, item := range items {
-		if item.ID == nil {
-			continue
-		}
-		if item.Product == nil {
-			continue
-		}
-		if item.Price == nil {
-			continue
-		}
-		cart.Items = append(cart.Items, item)
-	}
-
-	return &cart, nil
+	return &cart, tx.Commit()
 }
 
-func (r *CartRepository) AddCartItem(ctx context.Context, cartID uuid.UUID, product string, price float64, itemLimit int) (*entity.CartItem, error) {
+func (r *CartRepository) AddCartItem(ctx context.Context, cartID uuid.UUID, product string, price decimal.Decimal, itemLimit int) (*entity.CartItem, error) {
 
 	var pgErr *pgconn.PgError
 
 	var count int
 	var cartItem entity.CartItem
+	tx, errTx := r.db.BeginTxx(ctx, nil)
+	if errTx != nil {
+		return nil, fmt.Errorf("r.AddCartItem: %w", errTx)
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.ExecContext(ctx, `SELECT id FROM carts WHERE id=$1 FOR UPDATE`, cartID); err != nil {
+		tx.Rollback()
+		return nil, fmt.Errorf("r.AddCartItem: %w", err)
+	}
+
 	q := `SELECT COUNT(*) FROM cart_items WHERE cart_id=$1;`
-	if err := r.db.GetContext(ctx, &count, q, cartID); err != nil {
+	if err := tx.GetContext(ctx, &count, q, cartID); err != nil {
+		tx.Rollback()
 		return nil, fmt.Errorf("r.AddCartItem: %w", err)
 	}
 	if count >= itemLimit {
+		tx.Rollback()
 		return nil, errs.ErrFullCart
 	}
 
@@ -80,47 +93,49 @@ func (r *CartRepository) AddCartItem(ctx context.Context, cartID uuid.UUID, prod
 VALUES ($1, $2, $3)
 RETURNING id,cart_id, product, price`
 
-	if err := r.db.GetContext(ctx, &cartItem, q, cartID, product, price); err != nil {
+	if err := tx.GetContext(ctx, &cartItem, q, cartID, product, price); err != nil {
+		tx.Rollback()
+
 		if errors.As(err, &pgErr) && pgErr.Code == "23503" {
 			return nil, errs.ErrCartNotFound
 		}
+
 		return nil, fmt.Errorf("r.AddCartItem: %w", err)
 	}
 
-	return &cartItem, nil
+	return &cartItem, tx.Commit()
 }
 
-func (r *CartRepository) UpdateCartItem(ctx context.Context, cartID, itemID uuid.UUID, newProduct string, newPrice float64) (*entity.CartItem, error) {
+func (r *CartRepository) UpdateCartItem(ctx context.Context, cartID, itemID uuid.UUID, newProduct string, newPrice decimal.Decimal) (*entity.CartItem, error) {
 	var cartItem entity.CartItem
 
-	q := `SELECT
-    c.id AS cart_id,
-    i.id AS id,
-    i.product,
-    i.price
-FROM carts c
-         LEFT JOIN cart_items i ON i.cart_id = c.id AND i.id =$1
-WHERE c.id = $2;`
+	tx, errTx := r.db.BeginTxx(ctx, nil)
+	if errTx != nil {
+		return nil, fmt.Errorf("r.UpdateCartItem: %w", errTx)
+	}
+	defer tx.Rollback()
 
-	err := r.db.GetContext(ctx, &cartItem, q, itemID, cartID)
-	if err != nil {
+	if _, err := tx.ExecContext(ctx, `SELECT id FROM carts WHERE id=$1 FOR UPDATE`, cartID); err != nil {
+		tx.Rollback()
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, errs.ErrCartNotFound
 		}
 		return nil, fmt.Errorf("r.UpdateCartItem: %w", err)
 	}
-	if cartItem.ID == nil || cartItem.Product == nil || cartItem.Price == nil {
-		return nil, errs.ErrCartItemNotFound
-	}
 
-	q = `UPDATE cart_items SET product=$1, price=$2 WHERE id=$3
+	q := `UPDATE cart_items SET product=$1, price=$2 WHERE id=$3
 RETURNING id,cart_id,product,price`
 
-	err = r.db.GetContext(ctx, &cartItem, q, newProduct, newPrice, cartItem.ID)
+	err := tx.GetContext(ctx, &cartItem, q, newProduct, newPrice, itemID)
 	if err != nil {
+		tx.Rollback()
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, errs.ErrCartItemNotFound
+		}
 		return nil, fmt.Errorf("r.UpdateCartItem: %w", err)
 	}
-	return &cartItem, nil
+
+	return &cartItem, tx.Commit()
 }
 
 func (r *CartRepository) RemoveCartItem(ctx context.Context, cartID, itemID uuid.UUID) error {

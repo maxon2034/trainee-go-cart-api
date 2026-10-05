@@ -62,10 +62,10 @@ func (h *CartHandler) View(w http.ResponseWriter, r *http.Request) {
 	viewCartResponse.ID = cart.ID
 	for _, item := range cart.Items {
 		viewCartResponse.Items = append(viewCartResponse.Items, ViewCartItemResponse{
-			ID:      *item.ID,
+			ID:      item.ID,
 			CartID:  item.CartID,
-			Product: *item.Product,
-			Price:   *item.Price,
+			Product: item.Product,
+			Price:   item.Price,
 		})
 	}
 
@@ -112,7 +112,7 @@ func (h *CartHandler) AddItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	addItemResponse.ID = *cartItem.ID
+	addItemResponse.ID = cartItem.ID
 	addItemResponse.CartID = cartItem.CartID
 	addItemResponse.Product = addItemRequest.Product
 	addItemResponse.Price = addItemRequest.Price
@@ -159,18 +159,18 @@ func (h *CartHandler) UpdateItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if *cartItem.Product != updateItemRequest.Product {
+	if cartItem.Product != updateItemRequest.Product {
 		h.logger.Error("product mismatch", slog.Any("expected product", updateItemRequest.Product), slog.Any("product", cartItem.Product))
 		writeError(w, h.logger, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "internal server error")
 		return
 	}
-	if *cartItem.Price != updateItemRequest.Price {
+	if !cartItem.Price.Equal(updateItemRequest.Price) {
 		h.logger.Error("price mismatch", slog.Any("expected price", updateItemRequest.Product), slog.Any("price", cartItem.Product))
 		writeError(w, h.logger, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "internal server error")
 		return
 	}
 
-	updateItemResponse.ID = *cartItem.ID
+	updateItemResponse.ID = cartItem.ID
 	updateItemResponse.CartID = cartItem.CartID
 	updateItemResponse.Product = updateItemRequest.Product
 	updateItemResponse.Price = updateItemRequest.Price
@@ -216,16 +216,16 @@ func (h *CartHandler) CalculateDiscount(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	cartID, totalPrice, discountPercent, finalPrice, err := h.service.CalculateDiscount(ctx, cartUUID)
+	cartDiscount, err := h.service.CalculateDiscount(ctx, cartUUID)
 	if err != nil {
 		processError(w, h.logger, err)
 		return
 	}
 
-	calculateDiscountResponse.CartID = cartID
-	calculateDiscountResponse.TotalPrice = totalPrice
-	calculateDiscountResponse.DiscountPercent = discountPercent
-	calculateDiscountResponse.FinalPrice = finalPrice
+	calculateDiscountResponse.CartID = cartDiscount.CartID
+	calculateDiscountResponse.TotalPrice = cartDiscount.TotalPrice
+	calculateDiscountResponse.DiscountPercent = cartDiscount.DiscountPercent
+	calculateDiscountResponse.FinalPrice = cartDiscount.FinalPrice
 
 	ok = writeResponse(w, h.logger, http.StatusOK, calculateDiscountResponse)
 	if !ok {

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 )
 
 type CreateCartResponse struct {
@@ -10,10 +11,10 @@ type CreateCartResponse struct {
 }
 
 type CreateCartItemResponse struct {
-	ID      uuid.UUID `json:"id"`
-	CartID  uuid.UUID `json:"cart_id"`
-	Product string    `json:"product"`
-	Price   float64   `json:"price"`
+	ID      uuid.UUID       `json:"id"`
+	CartID  uuid.UUID       `json:"cart_id"`
+	Product string          `json:"product"`
+	Price   decimal.Decimal `json:"price"`
 }
 
 type ViewCartResponse struct {
@@ -22,41 +23,41 @@ type ViewCartResponse struct {
 }
 
 type ViewCartItemResponse struct {
-	ID      uuid.UUID `json:"id"`
-	CartID  uuid.UUID `json:"cart_id"`
-	Product string    `json:"product"`
-	Price   float64   `json:"price"`
+	ID      uuid.UUID       `json:"id"`
+	CartID  uuid.UUID       `json:"cart_id"`
+	Product string          `json:"product"`
+	Price   decimal.Decimal `json:"price"`
 }
 
 type AddItemRequest struct {
-	Product string  `json:"product"`
-	Price   float64 `json:"price"`
+	Product string          `json:"product"`
+	Price   decimal.Decimal `json:"price"`
 }
 
 type AddItemResponse struct {
-	ID      uuid.UUID `json:"id"`
-	CartID  uuid.UUID `json:"cart_id"`
-	Product string    `json:"product"`
-	Price   float64   `json:"price"`
+	ID      uuid.UUID       `json:"id"`
+	CartID  uuid.UUID       `json:"cart_id"`
+	Product string          `json:"product"`
+	Price   decimal.Decimal `json:"price"`
 }
 
 type UpdateItemRequest struct {
-	Product string  `json:"product"`
-	Price   float64 `json:"price"`
+	Product string          `json:"product"`
+	Price   decimal.Decimal `json:"price"`
 }
 
 type UpdateItemResponse struct {
-	ID      uuid.UUID `json:"id"`
-	CartID  uuid.UUID `json:"cart"`
-	Product string    `json:"product"`
-	Price   float64   `json:"price"`
+	ID      uuid.UUID       `json:"id"`
+	CartID  uuid.UUID       `json:"cart"`
+	Product string          `json:"product"`
+	Price   decimal.Decimal `json:"price"`
 }
 
 type CalculateDiscountResponse struct {
-	CartID          uuid.UUID `json:"cart_id"`
-	TotalPrice      float64   `json:"total_price"`
-	DiscountPercent float64   `json:"discount_percent"`
-	FinalPrice      float64   `json:"final_price"`
+	CartID          uuid.UUID       `json:"cart_id"`
+	TotalPrice      decimal.Decimal `json:"total_price"`
+	DiscountPercent float64         `json:"discount_percent"`
+	FinalPrice      decimal.Decimal `json:"final_price"`
 }
 
 type ErrorResponse struct {

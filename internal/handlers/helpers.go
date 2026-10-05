@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/maxon2034/trainee-go-cart-api/internal/errs"
+	"github.com/shopspring/decimal"
 )
 
 func writeError(w http.ResponseWriter, l *slog.Logger, code int, status string, message string) {
@@ -65,14 +66,14 @@ func parseUUID(w http.ResponseWriter, r *http.Request, l *slog.Logger, pathValue
 	return UUID, true
 }
 
-func validateItemRequest(w http.ResponseWriter, l *slog.Logger, product string, price float64) bool {
+func validateItemRequest(w http.ResponseWriter, l *slog.Logger, product string, price decimal.Decimal) bool {
 	product = strings.TrimSpace(product)
 	if product == "" {
 		writeError(w, l, http.StatusBadRequest, "EMPTY_PRODUCT", "empty product")
 		l.Info("bad request", slog.Any("error", "empty product"))
 		return false
 	}
-	if price <= 0 {
+	if price.LessThanOrEqual(decimal.Zero) {
 		writeError(w, l, http.StatusBadRequest, "INVALID_PRICE", "price must be greater than zero")
 		l.Info("bad request", slog.Any("error", "invalid price"))
 		return false

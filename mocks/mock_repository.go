@@ -15,6 +15,7 @@ import (
 
 	uuid "github.com/google/uuid"
 	entity "github.com/maxon2034/trainee-go-cart-api/internal/entity"
+	decimal "github.com/shopspring/decimal"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -58,7 +59,7 @@ func (mr *MockRepositoryMockRecorder) AddCart(ctx any) *gomock.Call {
 }
 
 // AddCartItem mocks base method.
-func (m *MockRepository) AddCartItem(ctx context.Context, cartID uuid.UUID, product string, price float64, itemLimit int) (*entity.CartItem, error) {
+func (m *MockRepository) AddCartItem(ctx context.Context, cartID uuid.UUID, product string, price decimal.Decimal, itemLimit int) (*entity.CartItem, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddCartItem", ctx, cartID, product, price, itemLimit)
 	ret0, _ := ret[0].(*entity.CartItem)
@@ -102,7 +103,7 @@ func (mr *MockRepositoryMockRecorder) RemoveCartItem(ctx, cartID, itemID any) *g
 }
 
 // UpdateCartItem mocks base method.
-func (m *MockRepository) UpdateCartItem(ctx context.Context, cartID, itemID uuid.UUID, newProduct string, newPrice float64) (*entity.CartItem, error) {
+func (m *MockRepository) UpdateCartItem(ctx context.Context, cartID, itemID uuid.UUID, newProduct string, newPrice decimal.Decimal) (*entity.CartItem, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateCartItem", ctx, cartID, itemID, newProduct, newPrice)
 	ret0, _ := ret[0].(*entity.CartItem)

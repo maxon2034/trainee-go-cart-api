@@ -46,7 +46,7 @@ func Run(ctx context.Context) {
 
 	repo := repository.New(DB)
 
-	service := service.New(repo, logger)
+	service := service.New(repo, logger, cfg.Cart)
 
 	handler := handlers.NewCartHandler(service, logger, cfg.Server)
 

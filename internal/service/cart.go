@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/maxon2034/trainee-go-cart-api/internal/entity"
 	"github.com/maxon2034/trainee-go-cart-api/internal/errs"
+	"github.com/shopspring/decimal"
 )
 
 const ItemLimit = 5
@@ -33,7 +34,7 @@ func (s *CartService) ViewCart(ctx context.Context, cartID uuid.UUID) (*entity.C
 	return cart, nil
 }
 
-func (s *CartService) AddItem(ctx context.Context, cartID uuid.UUID, product string, price float64) (*entity.CartItem, error) {
+func (s *CartService) AddItem(ctx context.Context, cartID uuid.UUID, product string, price decimal.Decimal) (*entity.CartItem, error) {
 	cartItem, err := s.repo.AddCartItem(ctx, cartID, product, price, ItemLimit)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "add cart item", slog.Any("cart id", cartID), slog.Any("error", err))
@@ -43,7 +44,7 @@ func (s *CartService) AddItem(ctx context.Context, cartID uuid.UUID, product str
 	return cartItem, nil
 }
 
-func (s *CartService) UpdateCartItem(ctx context.Context, cartID, itemID uuid.UUID, newProduct string, newPrice float64) (*entity.CartItem, error) {
+func (s *CartService) UpdateCartItem(ctx context.Context, cartID, itemID uuid.UUID, newProduct string, newPrice decimal.Decimal) (*entity.CartItem, error) {
 	cartItem, err := s.repo.UpdateCartItem(ctx, cartID, itemID, newProduct, newPrice)
 	if err != nil {
 		if errors.Is(err, errs.ErrCartItemNotFound) {
@@ -74,42 +75,37 @@ func (s *CartService) RemoveItem(ctx context.Context, cartID, itemID uuid.UUID) 
 	return nil
 }
 
-func (s *CartService) CalculateDiscount(ctx context.Context, cartID uuid.UUID) (uuid.UUID, float64, float64, float64, error) {
-	var totalPrice float64
-	var discountPercent float64
-	var finalPrice float64
+func (s *CartService) CalculateDiscount(ctx context.Context, cartID uuid.UUID) (*entity.CartDiscount, error) {
+	var cartDiscount entity.CartDiscount
+	dpBigDecimal := decimal.NewFromFloat(s.cfg.DiscountPercentBig)
+	dpSmallDecimal := decimal.NewFromFloat(s.cfg.DiscountPercentSmall)
 
 	cart, err := s.repo.GetCart(ctx, cartID)
 	if err != nil {
 		if errors.Is(err, errs.ErrCartNotFound) {
-			return uuid.Nil, 0, 0, 0, fmt.Errorf("s.CalculateDiscount: %w", err)
-		}
-		if errors.Is(err, errs.ErrCartItemNotFound) {
-			return cart.ID, 0, 0, 0, nil
+			return nil, fmt.Errorf("s.CalculateDiscount: %w", err)
 		}
 		s.logger.ErrorContext(ctx, "calculate discount", slog.Any("cart id", cartID), slog.Any("error", err))
-		return uuid.Nil, 0, 0, 0, fmt.Errorf("s.CalculateDiscount: %w", err)
+		return nil, fmt.Errorf("s.CalculateDiscount: %w", err)
 	}
 
 	for _, item := range cart.Items {
-		totalPrice += *item.Price
+		cartDiscount.TotalPrice = cartDiscount.TotalPrice.Add(item.Price)
+	}
+	cartDiscount.FinalPrice = cartDiscount.TotalPrice
+
+	if cartDiscount.TotalPrice.GreaterThan(s.cfg.DiscountTotalPrice) && len(cart.Items) > s.cfg.DiscountItemAmount {
+		cartDiscount.FinalPrice = cartDiscount.TotalPrice.Sub(cartDiscount.TotalPrice.Mul(dpBigDecimal))
+		return &cartDiscount, nil
 	}
 
-	if totalPrice > 5000 && len(cart.Items) > 3 {
-		discountPercent = 0.1
-		finalPrice = totalPrice - (totalPrice * discountPercent)
-		return cart.ID, totalPrice, discountPercent, finalPrice, nil
+	if cartDiscount.TotalPrice.GreaterThan(s.cfg.DiscountTotalPrice) {
+		cartDiscount.FinalPrice = cartDiscount.TotalPrice.Sub(cartDiscount.TotalPrice.Mul(dpBigDecimal))
 	}
 
-	if totalPrice > 5000 {
-		discountPercent = 0.1
-		finalPrice = totalPrice - (totalPrice * discountPercent)
+	if len(cart.Items) > s.cfg.DiscountItemAmount {
+		cartDiscount.FinalPrice = cartDiscount.TotalPrice.Sub(cartDiscount.TotalPrice.Mul(dpSmallDecimal))
 	}
 
-	if len(cart.Items) > 3 {
-		discountPercent = 0.05
-		finalPrice = totalPrice - (totalPrice * discountPercent)
-	}
-
-	return cartID, totalPrice, discountPercent, finalPrice, nil
+	return &cartDiscount, nil
 }
