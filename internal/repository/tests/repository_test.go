@@ -281,9 +281,9 @@ func TestCartRepository_AddCartItem(t *testing.T) {
 
 		mock.ExpectBegin()
 
-		mock.ExpectExec(`SELECT id FROM carts WHERE id=\$1 FOR UPDATE`).
+		mock.ExpectQuery(`SELECT id FROM carts WHERE id=\$1 FOR UPDATE`).
 			WithArgs(cartID).
-			WillReturnResult(sqlmock.NewResult(0, 0))
+			WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(cartID))
 
 		mock.ExpectQuery(`SELECT COUNT\(\*\) FROM cart_items WHERE cart_id=\$1;`).
 			WithArgs(cartID).
@@ -323,9 +323,9 @@ func TestCartRepository_AddCartItem(t *testing.T) {
 
 		mock.ExpectBegin()
 
-		mock.ExpectExec(`SELECT id FROM carts WHERE id=\$1 FOR UPDATE`).
+		mock.ExpectQuery(`SELECT id FROM carts WHERE id=\$1 FOR UPDATE`).
 			WithArgs(nonExistentCartID).
-			WillReturnResult(sqlmock.NewResult(0, 0))
+			WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(nonExistentCartID))
 
 		mock.ExpectQuery(`SELECT COUNT\(\*\) FROM cart_items WHERE cart_id=\$1;`).
 			WithArgs(nonExistentCartID).
@@ -338,6 +338,33 @@ func TestCartRepository_AddCartItem(t *testing.T) {
 		mock.ExpectRollback()
 
 		item, err := repo.AddCartItem(context.Background(), nonExistentCartID, product, price, itemLimit)
+
+		require.Error(t, err)
+		assert.Nil(t, item)
+		assert.ErrorIs(t, err, errs.ErrCartNotFound)
+
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("error - cart not found (select for update returned no rows)", func(t *testing.T) {
+		mockDB, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer mockDB.Close()
+
+		sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
+		repo := repository.New(sqlxDB)
+
+		nonExistentCartID := uuid.New()
+
+		mock.ExpectBegin()
+
+		mock.ExpectQuery(`SELECT id FROM carts WHERE id=\$1 FOR UPDATE`).
+			WithArgs(nonExistentCartID).
+			WillReturnError(sql.ErrNoRows)
+
+		mock.ExpectRollback()
+
+		item, err := repo.AddCartItem(context.Background(), nonExistentCartID, "Headphones", decimal.RequireFromString("80.00"), 5)
 
 		require.Error(t, err)
 		assert.Nil(t, item)
@@ -359,9 +386,9 @@ func TestCartRepository_AddCartItem(t *testing.T) {
 
 		mock.ExpectBegin()
 
-		mock.ExpectExec(`SELECT id FROM carts WHERE id=\$1 FOR UPDATE`).
+		mock.ExpectQuery(`SELECT id FROM carts WHERE id=\$1 FOR UPDATE`).
 			WithArgs(cartID).
-			WillReturnResult(sqlmock.NewResult(0, 0))
+			WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(cartID))
 
 		mock.ExpectQuery(`SELECT COUNT\(\*\) FROM cart_items WHERE cart_id=\$1;`).
 			WithArgs(cartID).
@@ -414,7 +441,7 @@ func TestCartRepository_AddCartItem(t *testing.T) {
 
 		mock.ExpectBegin()
 
-		mock.ExpectExec(`SELECT id FROM carts WHERE id=\$1 FOR UPDATE`).
+		mock.ExpectQuery(`SELECT id FROM carts WHERE id=\$1 FOR UPDATE`).
 			WithArgs(cartID).
 			WillReturnError(expectedErr)
 
@@ -444,9 +471,9 @@ func TestCartRepository_AddCartItem(t *testing.T) {
 
 		mock.ExpectBegin()
 
-		mock.ExpectExec(`SELECT id FROM carts WHERE id=\$1 FOR UPDATE`).
+		mock.ExpectQuery(`SELECT id FROM carts WHERE id=\$1 FOR UPDATE`).
 			WithArgs(cartID).
-			WillReturnResult(sqlmock.NewResult(0, 0))
+			WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(cartID))
 
 		mock.ExpectQuery(`SELECT COUNT\(\*\) FROM cart_items WHERE cart_id=\$1;`).
 			WithArgs(cartID).
@@ -480,9 +507,9 @@ func TestCartRepository_AddCartItem(t *testing.T) {
 
 		mock.ExpectBegin()
 
-		mock.ExpectExec(`SELECT id FROM carts WHERE id=\$1 FOR UPDATE`).
+		mock.ExpectQuery(`SELECT id FROM carts WHERE id=\$1 FOR UPDATE`).
 			WithArgs(cartID).
-			WillReturnResult(sqlmock.NewResult(0, 0))
+			WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(cartID))
 
 		mock.ExpectQuery(`SELECT COUNT\(\*\) FROM cart_items WHERE cart_id=\$1;`).
 			WithArgs(cartID).
@@ -520,9 +547,9 @@ func TestCartRepository_AddCartItem(t *testing.T) {
 
 		mock.ExpectBegin()
 
-		mock.ExpectExec(`SELECT id FROM carts WHERE id=\$1 FOR UPDATE`).
+		mock.ExpectQuery(`SELECT id FROM carts WHERE id=\$1 FOR UPDATE`).
 			WithArgs(cartID).
-			WillReturnResult(sqlmock.NewResult(0, 0))
+			WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(cartID))
 
 		mock.ExpectQuery(`SELECT COUNT\(\*\) FROM cart_items WHERE cart_id=\$1;`).
 			WithArgs(cartID).

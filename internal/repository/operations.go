@@ -39,7 +39,6 @@ func (r *CartRepository) GetCart(ctx context.Context, cartID uuid.UUID) (*entity
 	q := `SELECT id FROM carts WHERE id = $1;`
 	err = tx.GetContext(ctx, &cart.ID, q, cartID)
 	if err != nil {
-		tx.Rollback()
 		return nil, errs.ErrCartNotFound
 	}
 	q = `SELECT c.id AS cart_id,
@@ -74,18 +73,18 @@ func (r *CartRepository) AddCartItem(ctx context.Context, cartID uuid.UUID, prod
 	}
 	defer tx.Rollback()
 
-	if _, err := tx.ExecContext(ctx, `SELECT id FROM carts WHERE id=$1 FOR UPDATE`, cartID); err != nil {
-		tx.Rollback()
+	if err := tx.GetContext(ctx, &cartItem.CartID, `SELECT id FROM carts WHERE id=$1 FOR UPDATE`, cartID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, errs.ErrCartNotFound
+		}
 		return nil, fmt.Errorf("r.AddCartItem: %w", err)
 	}
 
 	q := `SELECT COUNT(*) FROM cart_items WHERE cart_id=$1;`
 	if err := tx.GetContext(ctx, &count, q, cartID); err != nil {
-		tx.Rollback()
 		return nil, fmt.Errorf("r.AddCartItem: %w", err)
 	}
 	if count >= itemLimit {
-		tx.Rollback()
 		return nil, errs.ErrFullCart
 	}
 
@@ -94,7 +93,6 @@ VALUES ($1, $2, $3)
 RETURNING id,cart_id, product, price`
 
 	if err := tx.GetContext(ctx, &cartItem, q, cartID, product, price); err != nil {
-		tx.Rollback()
 
 		if errors.As(err, &pgErr) && pgErr.Code == "23503" {
 			return nil, errs.ErrCartNotFound
@@ -116,7 +114,6 @@ func (r *CartRepository) UpdateCartItem(ctx context.Context, cartID, itemID uuid
 	defer tx.Rollback()
 
 	if _, err := tx.ExecContext(ctx, `SELECT id FROM carts WHERE id=$1 FOR UPDATE`, cartID); err != nil {
-		tx.Rollback()
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, errs.ErrCartNotFound
 		}
@@ -128,7 +125,6 @@ RETURNING id,cart_id,product,price`
 
 	err := tx.GetContext(ctx, &cartItem, q, newProduct, newPrice, itemID)
 	if err != nil {
-		tx.Rollback()
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, errs.ErrCartItemNotFound
 		}

@@ -77,8 +77,6 @@ func (s *CartService) RemoveItem(ctx context.Context, cartID, itemID uuid.UUID) 
 
 func (s *CartService) CalculateDiscount(ctx context.Context, cartID uuid.UUID) (*entity.CartDiscount, error) {
 	var cartDiscount entity.CartDiscount
-	dpBigDecimal := decimal.NewFromFloat(s.cfg.DiscountPercentBig)
-	dpSmallDecimal := decimal.NewFromFloat(s.cfg.DiscountPercentSmall)
 
 	cart, err := s.repo.GetCart(ctx, cartID)
 	if err != nil {
@@ -92,19 +90,17 @@ func (s *CartService) CalculateDiscount(ctx context.Context, cartID uuid.UUID) (
 	for _, item := range cart.Items {
 		cartDiscount.TotalPrice = cartDiscount.TotalPrice.Add(item.Price)
 	}
+	cartDiscount.CartID = cartID
+	cartDiscount.DiscountPercent = 0
 	cartDiscount.FinalPrice = cartDiscount.TotalPrice
 
-	if cartDiscount.TotalPrice.GreaterThan(s.cfg.DiscountTotalPrice) && len(cart.Items) > s.cfg.DiscountItemAmount {
-		cartDiscount.FinalPrice = cartDiscount.TotalPrice.Sub(cartDiscount.TotalPrice.Mul(dpBigDecimal))
-		return &cartDiscount, nil
-	}
-
-	if cartDiscount.TotalPrice.GreaterThan(s.cfg.DiscountTotalPrice) {
-		cartDiscount.FinalPrice = cartDiscount.TotalPrice.Sub(cartDiscount.TotalPrice.Mul(dpBigDecimal))
-	}
-
-	if len(cart.Items) > s.cfg.DiscountItemAmount {
-		cartDiscount.FinalPrice = cartDiscount.TotalPrice.Sub(cartDiscount.TotalPrice.Mul(dpSmallDecimal))
+	switch {
+	case cartDiscount.TotalPrice.GreaterThan(s.cfg.DiscountTotalPrice):
+		cartDiscount.DiscountPercent = s.cfg.DiscountPercentBig
+		cartDiscount.FinalPrice = cartDiscount.TotalPrice.Sub(cartDiscount.TotalPrice.Mul(decimal.NewFromFloat(s.cfg.DiscountPercentBig)))
+	case len(cart.Items) > s.cfg.DiscountItemAmount:
+		cartDiscount.DiscountPercent = s.cfg.DiscountPercentSmall
+		cartDiscount.FinalPrice = cartDiscount.TotalPrice.Sub(cartDiscount.TotalPrice.Mul(decimal.NewFromFloat(s.cfg.DiscountPercentSmall)))
 	}
 
 	return &cartDiscount, nil
