@@ -58,7 +58,11 @@ func (r *CartRepository) GetCart(ctx context.Context, cartID uuid.UUID) (*entity
 
 	cart.Items = append(cart.Items, items...)
 
-	return &cart, tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("r.UpdateCartItem commit: %w", err)
+	}
+
+	return &cart, nil
 }
 
 func (r *CartRepository) AddCartItem(ctx context.Context, cartID uuid.UUID, product string, price decimal.Decimal, itemLimit int) (*entity.CartItem, error) {
@@ -73,7 +77,8 @@ func (r *CartRepository) AddCartItem(ctx context.Context, cartID uuid.UUID, prod
 	}
 	defer tx.Rollback()
 
-	if err := tx.GetContext(ctx, &cartItem.CartID, `SELECT id FROM carts WHERE id=$1 FOR UPDATE`, cartID); err != nil {
+	var existsID uuid.UUID
+	if err := tx.GetContext(ctx, &existsID, `SELECT id FROM carts WHERE id=$1 FOR UPDATE`, cartID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, errs.ErrCartNotFound
 		}
@@ -101,7 +106,11 @@ RETURNING id,cart_id, product, price`
 		return nil, fmt.Errorf("r.AddCartItem: %w", err)
 	}
 
-	return &cartItem, tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("r.UpdateCartItem commit: %w", err)
+	}
+
+	return &cartItem, nil
 }
 
 func (r *CartRepository) UpdateCartItem(ctx context.Context, cartID, itemID uuid.UUID, newProduct string, newPrice decimal.Decimal) (*entity.CartItem, error) {
@@ -113,17 +122,18 @@ func (r *CartRepository) UpdateCartItem(ctx context.Context, cartID, itemID uuid
 	}
 	defer tx.Rollback()
 
-	if _, err := tx.ExecContext(ctx, `SELECT id FROM carts WHERE id=$1 FOR UPDATE`, cartID); err != nil {
+	var existsID uuid.UUID
+	if err := tx.GetContext(ctx, &existsID, `SELECT id FROM carts WHERE id=$1 FOR UPDATE`, cartID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, errs.ErrCartNotFound
 		}
-		return nil, fmt.Errorf("r.UpdateCartItem: %w", err)
+		return nil, fmt.Errorf("r.AddCartItem: %w", err)
 	}
 
-	q := `UPDATE cart_items SET product=$1, price=$2 WHERE id=$3
+	q := `UPDATE cart_items SET product=$1, price=$2 WHERE id=$3 AND cart_id=$4
 RETURNING id,cart_id,product,price`
 
-	err := tx.GetContext(ctx, &cartItem, q, newProduct, newPrice, itemID)
+	err := tx.GetContext(ctx, &cartItem, q, newProduct, newPrice, itemID, cartID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, errs.ErrCartItemNotFound
@@ -131,7 +141,11 @@ RETURNING id,cart_id,product,price`
 		return nil, fmt.Errorf("r.UpdateCartItem: %w", err)
 	}
 
-	return &cartItem, tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("r.UpdateCartItem commit: %w", err)
+	}
+
+	return &cartItem, nil
 }
 
 func (r *CartRepository) RemoveCartItem(ctx context.Context, cartID, itemID uuid.UUID) error {

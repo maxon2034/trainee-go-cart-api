@@ -69,7 +69,7 @@ func (h *CartHandler) View(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	ok = writeResponse(w, h.logger, http.StatusCreated, viewCartResponse)
+	ok = writeResponse(w, h.logger, http.StatusOK, viewCartResponse)
 	if !ok {
 		return
 	}
