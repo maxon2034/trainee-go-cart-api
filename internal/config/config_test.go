@@ -1,14 +1,17 @@
 package config
 
 import (
-	"fmt"
 	"testing"
+
+	"github.com/shopspring/decimal"
 )
 
 func TestLoadConfig(t *testing.T) {
-	config, err := Load("../../config")
+	cfg, err := Load("../../config")
 	if err != nil {
 		t.Fatal(err)
 	}
-	fmt.Println(config.DB.Password)
+	if !cfg.Cart.DiscountTotalPrice.Equal(decimal.NewFromInt(5000)) {
+		t.Errorf("expected discount_total_price 5000, got %s", cfg.Cart.DiscountTotalPrice)
+	}
 }
