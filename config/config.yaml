@@ -13,9 +13,3 @@ db:
   dsn: ""
 logger:
   level: "info"
-cart:
-  item_limit: 5
-  discount_total_price: 5000.00
-  discount_item_amount: 3
-  discount_percent_big: 0.1
-  discount_percent_small: 0.05
