@@ -22,8 +22,6 @@ import (
 	"github.com/maxon2034/trainee-go-cart-api/mocks"
 )
 
-// decimalMatcher сравнивает decimal по значению. gomock.Eq использует reflect.DeepEqual,
-// который различает 100.0 и 100 из-за разного внутреннего представления (value и exp).
 type decimalMatcher struct{ expected decimal.Decimal }
 
 func (m decimalMatcher) Matches(x any) bool {
@@ -162,7 +160,7 @@ func TestCartHandler_View(t *testing.T) {
 					}, nil).
 					Times(1)
 			},
-			expectedStatus: http.StatusCreated,
+			expectedStatus: http.StatusOK, // Изменено с http.StatusCreated на http.StatusOK
 			checkResponse: func(t *testing.T, body []byte) {
 				var res handlers.ViewCartResponse
 				if err := json.Unmarshal(body, &res); err != nil {

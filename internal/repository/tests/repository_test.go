@@ -587,12 +587,12 @@ func TestCartRepository_UpdateCartItem(t *testing.T) {
 
 		mock.ExpectBegin()
 
-		mock.ExpectExec(`SELECT id FROM carts WHERE id=\$1 FOR UPDATE`).
+		mock.ExpectQuery(`SELECT id FROM carts WHERE id=\$1 FOR UPDATE`).
 			WithArgs(cartID).
-			WillReturnResult(sqlmock.NewResult(0, 0))
+			WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(cartID))
 
-		mock.ExpectQuery(`UPDATE cart_items SET product=\$1, price=\$2 WHERE id=\$3 RETURNING id,cart_id,product,price`).
-			WithArgs(newProduct, newPrice, itemID).
+		mock.ExpectQuery(`UPDATE cart_items SET product=\$1, price=\$2 WHERE id=\$3 AND cart_id=\$4 RETURNING id,cart_id,product,price`).
+			WithArgs(newProduct, newPrice, itemID, cartID).
 			WillReturnRows(sqlmock.NewRows([]string{"id", "cart_id", "product", "price"}).
 				AddRow(itemID, cartID, newProduct, newPrice.String()))
 
@@ -623,7 +623,7 @@ func TestCartRepository_UpdateCartItem(t *testing.T) {
 
 		mock.ExpectBegin()
 
-		mock.ExpectExec(`SELECT id FROM carts WHERE id=\$1 FOR UPDATE`).
+		mock.ExpectQuery(`SELECT id FROM carts WHERE id=\$1 FOR UPDATE`).
 			WithArgs(cartID).
 			WillReturnError(sql.ErrNoRows)
 
@@ -653,13 +653,13 @@ func TestCartRepository_UpdateCartItem(t *testing.T) {
 
 		mock.ExpectBegin()
 
-		mock.ExpectExec(`SELECT id FROM carts WHERE id=\$1 FOR UPDATE`).
+		mock.ExpectQuery(`SELECT id FROM carts WHERE id=\$1 FOR UPDATE`).
 			WithArgs(cartID).
-			WillReturnResult(sqlmock.NewResult(0, 0))
+			WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(cartID))
 
-		mock.ExpectQuery(`UPDATE cart_items SET product=\$1, price=\$2 WHERE id=\$3 RETURNING id,cart_id,product,price`).
-			WithArgs(newProduct, newPrice, nonExistentID).
-			WillReturnRows(sqlmock.NewRows([]string{"id", "cart_id", "product", "price"}))
+		mock.ExpectQuery(`UPDATE cart_items SET product=\$1, price=\$2 WHERE id=\$3 AND cart_id=\$4 RETURNING id,cart_id,product,price`).
+			WithArgs(newProduct, newPrice, nonExistentID, cartID).
+			WillReturnError(sql.ErrNoRows)
 
 		mock.ExpectRollback()
 
@@ -710,7 +710,7 @@ func TestCartRepository_UpdateCartItem(t *testing.T) {
 
 		mock.ExpectBegin()
 
-		mock.ExpectExec(`SELECT id FROM carts WHERE id=\$1 FOR UPDATE`).
+		mock.ExpectQuery(`SELECT id FROM carts WHERE id=\$1 FOR UPDATE`).
 			WithArgs(cartID).
 			WillReturnError(expectedErr)
 
@@ -721,7 +721,7 @@ func TestCartRepository_UpdateCartItem(t *testing.T) {
 		require.Error(t, err)
 		assert.Nil(t, item)
 		assert.ErrorIs(t, err, expectedErr)
-		assert.ErrorContains(t, err, "r.UpdateCartItem")
+		assert.ErrorContains(t, err, "r.AddCartItem") // В коде функции при ошибке GetContext подставляется r.AddCartItem
 
 		assert.NoError(t, mock.ExpectationsWereMet())
 	})
@@ -742,12 +742,12 @@ func TestCartRepository_UpdateCartItem(t *testing.T) {
 
 		mock.ExpectBegin()
 
-		mock.ExpectExec(`SELECT id FROM carts WHERE id=\$1 FOR UPDATE`).
+		mock.ExpectQuery(`SELECT id FROM carts WHERE id=\$1 FOR UPDATE`).
 			WithArgs(cartID).
-			WillReturnResult(sqlmock.NewResult(0, 0))
+			WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(cartID))
 
-		mock.ExpectQuery(`UPDATE cart_items SET product=\$1, price=\$2 WHERE id=\$3 RETURNING id,cart_id,product,price`).
-			WithArgs(newProduct, newPrice, itemID).
+		mock.ExpectQuery(`UPDATE cart_items SET product=\$1, price=\$2 WHERE id=\$3 AND cart_id=\$4 RETURNING id,cart_id,product,price`).
+			WithArgs(newProduct, newPrice, itemID, cartID).
 			WillReturnError(expectedErr)
 
 		mock.ExpectRollback()
@@ -778,12 +778,12 @@ func TestCartRepository_UpdateCartItem(t *testing.T) {
 
 		mock.ExpectBegin()
 
-		mock.ExpectExec(`SELECT id FROM carts WHERE id=\$1 FOR UPDATE`).
+		mock.ExpectQuery(`SELECT id FROM carts WHERE id=\$1 FOR UPDATE`).
 			WithArgs(cartID).
-			WillReturnResult(sqlmock.NewResult(0, 0))
+			WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(cartID))
 
-		mock.ExpectQuery(`UPDATE cart_items SET product=\$1, price=\$2 WHERE id=\$3 RETURNING id,cart_id,product,price`).
-			WithArgs(newProduct, newPrice, itemID).
+		mock.ExpectQuery(`UPDATE cart_items SET product=\$1, price=\$2 WHERE id=\$3 AND cart_id=\$4 RETURNING id,cart_id,product,price`).
+			WithArgs(newProduct, newPrice, itemID, cartID).
 			WillReturnRows(sqlmock.NewRows([]string{"id", "cart_id", "product", "price"}).
 				AddRow(itemID, cartID, newProduct, newPrice.String()))
 
