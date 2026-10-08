@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shopspring/decimal"
 	"github.com/spf13/viper"
 )
 
@@ -13,7 +12,6 @@ type Config struct {
 	Server ServerConfig `mapstructure:"server"`
 	DB     DBConfig     `mapstructure:"db"`
 	Logger LoggerConfig `mapstructure:"logger"`
-	Cart   CartConfig   `mapstructure:"cart"`
 }
 
 type ServerConfig struct {
@@ -37,14 +35,6 @@ type LoggerConfig struct {
 	Level string `mapstructure:"level"`
 }
 
-type CartConfig struct {
-	ItemLimit            int             `mapstructure:"item_limit"`
-	DiscountTotalPrice   decimal.Decimal `mapstructure:"-"`
-	DiscountItemAmount   int             `mapstructure:"discount_item_amount"`
-	DiscountPercentBig   float64         `mapstructure:"discount_percent_big"`
-	DiscountPercentSmall float64         `mapstructure:"discount_percent_small"`
-}
-
 func Load(path string) (Config, error) {
 	v := viper.New()
 
@@ -64,8 +54,6 @@ func Load(path string) (Config, error) {
 	if err := v.Unmarshal(&cfg); err != nil {
 		return Config{}, fmt.Errorf("cfg Load: %w", err)
 	}
-
-	cfg.Cart.DiscountTotalPrice = decimal.NewFromFloat(v.GetFloat64("cart.discount_total_price"))
 
 	if cfg.DB.DSN == "" {
 		cfg.DB.DSN = cfg.DB.BuildDSN()
