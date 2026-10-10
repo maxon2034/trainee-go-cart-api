@@ -65,7 +65,7 @@ func TestCartRepository_AddCart(t *testing.T) {
 }
 
 func TestCartRepository_GetCart(t *testing.T) {
-	t.Run("success", func(t *testing.T) {
+	t.Run("success with items", func(t *testing.T) {
 		mockDB, mock, err := sqlmock.New()
 		require.NoError(t, err)
 		defer mockDB.Close()
@@ -81,10 +81,17 @@ func TestCartRepository_GetCart(t *testing.T) {
 
 		mock.ExpectBegin()
 
+		// 1. Проверка существования корзины
 		mock.ExpectQuery(`SELECT id FROM carts WHERE id = \$1;`).
 			WithArgs(cartID).
 			WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(cartID))
 
+		// 2. Новый запрос: подсчет количества товаров (COUNT)
+		mock.ExpectQuery(`SELECT COUNT\(\*\) FROM cart_items WHERE cart_id = \$1;`).
+			WithArgs(cartID).
+			WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(2))
+
+		// 3. Выборка элементов корзины
 		mock.ExpectQuery(`SELECT c\.id AS cart_id, i\.id AS id, i\.product AS product, i\.price AS price FROM carts c LEFT JOIN cart_items i ON c\.id = i\.cart_id WHERE c\.id = \$1`).
 			WithArgs(cartID).
 			WillReturnRows(sqlmock.NewRows([]string{"cart_id", "id", "product", "price"}).
@@ -109,6 +116,39 @@ func TestCartRepository_GetCart(t *testing.T) {
 		assert.Equal(t, cartID, cart.Items[1].CartID)
 		assert.Equal(t, "Mouse", cart.Items[1].Product)
 		assert.True(t, price2.Equal(cart.Items[1].Price))
+
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("success - empty cart", func(t *testing.T) {
+		mockDB, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer mockDB.Close()
+
+		sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
+		repo := repository.New(sqlxDB)
+
+		cartID := uuid.New()
+
+		mock.ExpectBegin()
+
+		// 1. Проверка существования корзины
+		mock.ExpectQuery(`SELECT id FROM carts WHERE id = \$1;`).
+			WithArgs(cartID).
+			WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(cartID))
+
+		// 2. Подсчет возвращает 0, код завершается досрочно без выборки Items и с Commit/Rollback в зависимости от реализации
+		// (В текущей реализации при count == 0 транзакция завершается, коммит ожидания в коде метода не прописан явно, но транзакция закрывается через defer Rollback или возвращается)
+		mock.ExpectQuery(`SELECT COUNT\(\*\) FROM cart_items WHERE cart_id = \$1;`).
+			WithArgs(cartID).
+			WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
+
+		cart, err := repo.GetCart(context.Background(), cartID)
+
+		require.NoError(t, err)
+		require.NotNil(t, cart)
+		assert.Equal(t, cartID, cart.ID)
+		assert.Empty(t, cart.Items)
 
 		assert.NoError(t, mock.ExpectationsWereMet())
 	})
@@ -163,6 +203,39 @@ func TestCartRepository_GetCart(t *testing.T) {
 		assert.NoError(t, mock.ExpectationsWereMet())
 	})
 
+	t.Run("db error - count query failed", func(t *testing.T) {
+		mockDB, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer mockDB.Close()
+
+		sqlxDB := sqlx.NewDb(mockDB, "sqlmock")
+		repo := repository.New(sqlxDB)
+
+		cartID := uuid.New()
+		expectedErr := errors.New("db connection lost")
+
+		mock.ExpectBegin()
+
+		mock.ExpectQuery(`SELECT id FROM carts WHERE id = \$1;`).
+			WithArgs(cartID).
+			WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(cartID))
+
+		mock.ExpectQuery(`SELECT COUNT\(\*\) FROM cart_items WHERE cart_id = \$1;`).
+			WithArgs(cartID).
+			WillReturnError(expectedErr)
+
+		mock.ExpectRollback()
+
+		cart, err := repo.GetCart(context.Background(), cartID)
+
+		require.Error(t, err)
+		assert.Nil(t, cart)
+		assert.ErrorIs(t, err, expectedErr)
+		assert.ErrorContains(t, err, "r.GetCartItems")
+
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
+
 	t.Run("db error - items query failed", func(t *testing.T) {
 		mockDB, mock, err := sqlmock.New()
 		require.NoError(t, err)
@@ -179,6 +252,10 @@ func TestCartRepository_GetCart(t *testing.T) {
 		mock.ExpectQuery(`SELECT id FROM carts WHERE id = \$1;`).
 			WithArgs(cartID).
 			WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(cartID))
+
+		mock.ExpectQuery(`SELECT COUNT\(\*\) FROM cart_items WHERE cart_id = \$1;`).
+			WithArgs(cartID).
+			WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
 
 		mock.ExpectQuery(`SELECT c\.id AS cart_id, i\.id AS id, i\.product AS product, i\.price AS price FROM carts c LEFT JOIN cart_items i ON c\.id = i\.cart_id WHERE c\.id = \$1`).
 			WithArgs(cartID).
@@ -214,6 +291,10 @@ func TestCartRepository_GetCart(t *testing.T) {
 			WithArgs(cartID).
 			WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(cartID))
 
+		mock.ExpectQuery(`SELECT COUNT\(\*\) FROM cart_items WHERE cart_id = \$1;`).
+			WithArgs(cartID).
+			WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+
 		mock.ExpectQuery(`SELECT c\.id AS cart_id, i\.id AS id, i\.product AS product, i\.price AS price FROM carts c LEFT JOIN cart_items i ON c\.id = i\.cart_id WHERE c\.id = \$1`).
 			WithArgs(cartID).
 			WillReturnError(queryErr)
@@ -247,6 +328,10 @@ func TestCartRepository_GetCart(t *testing.T) {
 		mock.ExpectQuery(`SELECT id FROM carts WHERE id = \$1;`).
 			WithArgs(cartID).
 			WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(cartID))
+
+		mock.ExpectQuery(`SELECT COUNT\(\*\) FROM cart_items WHERE cart_id = \$1;`).
+			WithArgs(cartID).
+			WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
 
 		mock.ExpectQuery(`SELECT c\.id AS cart_id, i\.id AS id, i\.product AS product, i\.price AS price FROM carts c LEFT JOIN cart_items i ON c\.id = i\.cart_id WHERE c\.id = \$1`).
 			WithArgs(cartID).

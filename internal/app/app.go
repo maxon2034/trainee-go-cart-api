@@ -14,6 +14,7 @@ import (
 	"github.com/maxon2034/trainee-go-cart-api/internal/service"
 	"github.com/maxon2034/trainee-go-cart-api/pkg/db/postgres"
 	"github.com/maxon2034/trainee-go-cart-api/pkg/logger"
+	"github.com/shopspring/decimal"
 )
 
 var cfgPath string = "config/"
@@ -49,6 +50,8 @@ func Run(ctx context.Context) {
 	service := service.New(repo, logger, cfg.Cart)
 
 	handler := handlers.NewCartHandler(service, logger, cfg.Server)
+
+	decimal.MarshalJSONWithoutQuotes = true
 
 	server := server.New(cfg.Server, logger)
 	server.RegisterRoutes(handler)

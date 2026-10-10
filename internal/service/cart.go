@@ -86,10 +86,13 @@ func (s *CartService) CalculateDiscount(ctx context.Context, cartID uuid.UUID) (
 		s.logger.ErrorContext(ctx, "calculate discount", slog.Any("cart id", cartID), slog.Any("error", err))
 		return nil, fmt.Errorf("s.CalculateDiscount: %w", err)
 	}
-
-	for _, item := range cart.Items {
-		cartDiscount.TotalPrice = cartDiscount.TotalPrice.Add(item.Price)
+	cartDiscount.TotalPrice = decimal.Zero
+	if len(cart.Items) != 0 {
+		for _, item := range cart.Items {
+			cartDiscount.TotalPrice = cartDiscount.TotalPrice.Add(item.Price)
+		}
 	}
+
 	cartDiscount.CartID = cartID
 	cartDiscount.DiscountPercent = 0
 	cartDiscount.FinalPrice = cartDiscount.TotalPrice
