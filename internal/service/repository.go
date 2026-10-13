@@ -1,0 +1,19 @@
+package service
+
+import (
+	"context"
+
+	"github.com/google/uuid"
+	"github.com/maxon2034/trainee-go-cart-api/internal/entity"
+	"github.com/shopspring/decimal"
+)
+
+//go:generate mockgen -source=repository.go -destination=../../mocks/mock_repository.go -package=mocks Repository
+
+type Repository interface {
+	AddCart(ctx context.Context) (*entity.Cart, error)
+	GetCart(ctx context.Context, cartID uuid.UUID) (*entity.Cart, error)
+	AddCartItem(ctx context.Context, cartID uuid.UUID, product string, price decimal.Decimal, itemLimit int) (*entity.CartItem, error)
+	UpdateCartItem(ctx context.Context, cartID, itemID uuid.UUID, newProduct string, newPrice decimal.Decimal) (*entity.CartItem, error)
+	RemoveCartItem(ctx context.Context, cartID, itemID uuid.UUID) error
+}
