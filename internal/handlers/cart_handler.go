@@ -2,10 +2,12 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"time"
 
+	validator2 "github.com/go-playground/validator/v10"
 	"github.com/maxon2034/trainee-go-cart-api/internal/config"
 )
 
@@ -19,6 +21,8 @@ func NewCartHandler(s Service, l *slog.Logger, cfg config.ServerConfig) *CartHan
 	return &CartHandler{s, l, cfg}
 }
 
+var validator *validator2.Validate
+
 func (h *CartHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var createCartResponse CreateCartResponse
 
@@ -27,8 +31,8 @@ func (h *CartHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	cart, err := h.service.CreateCart(ctx)
 	if err != nil {
-		writeError(w, h.logger, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "internal server error")
-		h.logger.Error("error in creating cart", slog.Any("error", err))
+		writeError(w, h.logger, http.StatusInternalServerError, "internal server error")
+		h.logger.Error("internal server error", slog.Any("error", err))
 		return
 	}
 
@@ -63,7 +67,6 @@ func (h *CartHandler) View(w http.ResponseWriter, r *http.Request) {
 	for _, item := range cart.Items {
 		viewCartResponse.Items = append(viewCartResponse.Items, ViewCartItemResponse{
 			ID:      item.ID,
-			CartID:  item.CartID,
 			Product: item.Product,
 			Price:   item.Price,
 		})
@@ -77,6 +80,7 @@ func (h *CartHandler) View(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CartHandler) AddItem(w http.ResponseWriter, r *http.Request) {
+	validator = registerValidator()
 
 	var addItemRequest AddItemRequest
 	var addItemResponse AddItemResponse
@@ -90,7 +94,7 @@ func (h *CartHandler) AddItem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := decodeBody(w, r, &addItemRequest); err != nil {
-		writeError(w, h.logger, http.StatusBadRequest, "BAD_REQUEST", "bad request")
+		writeError(w, h.logger, http.StatusBadRequest, "unable to process request: "+err.Error())
 		h.logger.Info("decode item request", slog.Any("error", err))
 		return
 	}
@@ -101,8 +105,23 @@ func (h *CartHandler) AddItem(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	ok = validateItemRequest(w, h.logger, addItemRequest.Product, addItemRequest.Price)
-	if !ok {
+	if err := validator.StructCtx(ctx, addItemRequest); err != nil {
+		var validationErrs validator2.ValidationErrors
+		if errors.As(err, &validationErrs) {
+			for _, validationErr := range validationErrs {
+				switch validationErr.StructField() {
+				case "Product":
+					writeError(w, h.logger, http.StatusBadRequest, "unable to process request: product must be not empty")
+					h.logger.Info("add item product validation", slog.Any("error", validationErr))
+				case "Price":
+					writeError(w, h.logger, http.StatusBadRequest, "unable to process request: price must be greater than zero")
+					h.logger.Info("add item price validation", slog.Any("error", validationErr))
+				default:
+					writeError(w, h.logger, http.StatusBadRequest, "unable to process request")
+					h.logger.Info("add item validation", slog.Any("error", validationErr))
+				}
+			}
+		}
 		return
 	}
 
@@ -126,6 +145,8 @@ func (h *CartHandler) AddItem(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CartHandler) UpdateItem(w http.ResponseWriter, r *http.Request) {
+	validator = registerValidator()
+
 	var updateItemRequest UpdateItemRequest
 	var updateItemResponse UpdateItemResponse
 
@@ -142,14 +163,34 @@ func (h *CartHandler) UpdateItem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := decodeBody(w, r, &updateItemRequest); err != nil {
-		writeError(w, h.logger, http.StatusBadRequest, "BAD_REQUEST", "bad request")
+		writeError(w, h.logger, http.StatusBadRequest, "unable to process request: "+err.Error())
 		h.logger.Info("decode item request", slog.Any("error", err))
 		return
 	}
-	defer r.Body.Close()
+	defer func() {
+		err := r.Body.Close()
+		if err != nil {
+			h.logger.Error("close body", slog.Any("error", err))
+		}
+	}()
 
-	ok = validateItemRequest(w, h.logger, updateItemRequest.Product, updateItemRequest.Price)
-	if !ok {
+	if err := validator.StructCtx(ctx, updateItemRequest); err != nil {
+		var validationErrs validator2.ValidationErrors
+		if errors.As(err, &validationErrs) {
+			for _, validationErr := range validationErrs {
+				switch validationErr.StructField() {
+				case "Product":
+					writeError(w, h.logger, http.StatusBadRequest, "unable to process request: product must be not empty")
+					h.logger.Info("update item product validation", slog.Any("error", validationErr))
+				case "Price":
+					writeError(w, h.logger, http.StatusBadRequest, "unable to process request: price must be greater than zero")
+					h.logger.Info("update item price validation", slog.Any("error", validationErr))
+				default:
+					writeError(w, h.logger, http.StatusBadRequest, "unable to process request")
+					h.logger.Info("update item validation", slog.Any("error", validationErr))
+				}
+			}
+		}
 		return
 	}
 
@@ -161,12 +202,12 @@ func (h *CartHandler) UpdateItem(w http.ResponseWriter, r *http.Request) {
 
 	if cartItem.Product != updateItemRequest.Product {
 		h.logger.Error("product mismatch", slog.Any("expected product", updateItemRequest.Product), slog.Any("product", cartItem.Product))
-		writeError(w, h.logger, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "internal server error")
+		writeError(w, h.logger, http.StatusInternalServerError, "internal server error")
 		return
 	}
 	if !cartItem.Price.Equal(updateItemRequest.Price) {
 		h.logger.Error("price mismatch", slog.Any("expected price", updateItemRequest.Product), slog.Any("price", cartItem.Product))
-		writeError(w, h.logger, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "internal server error")
+		writeError(w, h.logger, http.StatusInternalServerError, "internal server error")
 		return
 	}
 
@@ -224,7 +265,7 @@ func (h *CartHandler) CalculateDiscount(w http.ResponseWriter, r *http.Request) 
 
 	calculateDiscountResponse.CartID = cartDiscount.CartID
 	calculateDiscountResponse.TotalPrice = cartDiscount.TotalPrice
-	calculateDiscountResponse.DiscountPercent = cartDiscount.DiscountPercent
+	calculateDiscountResponse.DiscountPercent = cartDiscount.DiscountPercent * 100
 	calculateDiscountResponse.FinalPrice = cartDiscount.FinalPrice
 
 	ok = writeResponse(w, h.logger, http.StatusOK, calculateDiscountResponse)

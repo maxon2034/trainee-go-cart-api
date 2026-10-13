@@ -12,7 +12,6 @@ type CreateCartResponse struct {
 
 type CreateCartItemResponse struct {
 	ID      uuid.UUID       `json:"id"`
-	CartID  uuid.UUID       `json:"cart_id"`
 	Product string          `json:"product"`
 	Price   decimal.Decimal `json:"price"`
 }
@@ -24,14 +23,13 @@ type ViewCartResponse struct {
 
 type ViewCartItemResponse struct {
 	ID      uuid.UUID       `json:"id"`
-	CartID  uuid.UUID       `json:"cart_id"`
 	Product string          `json:"product"`
 	Price   decimal.Decimal `json:"price"`
 }
 
 type AddItemRequest struct {
-	Product string          `json:"product"`
-	Price   decimal.Decimal `json:"price"`
+	Product string          `json:"product" validate:"required"`
+	Price   decimal.Decimal `json:"price" validate:"required,min=1"`
 }
 
 type AddItemResponse struct {
@@ -42,8 +40,8 @@ type AddItemResponse struct {
 }
 
 type UpdateItemRequest struct {
-	Product string          `json:"product"`
-	Price   decimal.Decimal `json:"price"`
+	Product string          `json:"product" validate:"required"`
+	Price   decimal.Decimal `json:"price" validate:"required,min=1"`
 }
 
 type UpdateItemResponse struct {
@@ -61,6 +59,5 @@ type CalculateDiscountResponse struct {
 }
 
 type ErrorResponse struct {
-	Status  string `json:"status"`
-	Message string `json:"message"`
+	Error string `json:"error"`
 }

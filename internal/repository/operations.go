@@ -41,6 +41,16 @@ func (r *CartRepository) GetCart(ctx context.Context, cartID uuid.UUID) (*entity
 	if err != nil {
 		return nil, errs.ErrCartNotFound
 	}
+
+	var count int
+	q = `SELECT COUNT(*) FROM cart_items WHERE cart_id = $1;`
+	if err = tx.GetContext(ctx, &count, q, cartID); err != nil {
+		return nil, fmt.Errorf("r.GetCartItems: %w", err)
+	}
+	if count == 0 {
+		return &entity.Cart{ID: cartID, Items: make([]entity.CartItem, 0)}, nil
+	}
+
 	q = `SELECT c.id AS cart_id,
        i.id AS id,
        i.product AS product,

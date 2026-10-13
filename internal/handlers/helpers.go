@@ -5,17 +5,19 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"reflect"
 	"strings"
 
+	validator2 "github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"github.com/maxon2034/trainee-go-cart-api/internal/errs"
 	"github.com/shopspring/decimal"
 )
 
-func writeError(w http.ResponseWriter, l *slog.Logger, code int, status string, message string) {
+func writeError(w http.ResponseWriter, l *slog.Logger, code int, errorMessage string) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(code)
-	err := json.NewEncoder(w).Encode(ErrorResponse{Status: status, Message: message})
+	err := json.NewEncoder(w).Encode(ErrorResponse{Error: errorMessage})
 	if err != nil {
 		l.Error("encode error response", slog.Any("error", err))
 	}
@@ -24,23 +26,23 @@ func writeError(w http.ResponseWriter, l *slog.Logger, code int, status string, 
 func processError(w http.ResponseWriter, l *slog.Logger, err error) {
 	switch {
 	case errors.Is(err, errs.ErrCartNotFound):
-		writeError(w, l, http.StatusNotFound, "CART_NOT_FOUND", "cart not found")
+		writeError(w, l, http.StatusNotFound, "cart not found")
 		l.Info("not found", slog.Any("error", "cart not found"))
 	case errors.Is(err, errs.ErrFullCart):
-		writeError(w, l, http.StatusBadRequest, "FULL_CART", "full cart")
+		writeError(w, l, http.StatusBadRequest, "cart is full. Unable to add more items")
 		l.Info("bad request", slog.Any("error", "full cart"))
 	case errors.Is(err, errs.ErrCartItemNotFound):
-		writeError(w, l, http.StatusNotFound, "ITEM_NOT_FOUND", "cart item not found")
+		writeError(w, l, http.StatusNotFound, "cart item not found")
 		l.Info("not found", slog.Any("error", "cart item not found"))
 	default:
-		writeError(w, l, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "internal server error")
+		writeError(w, l, http.StatusInternalServerError, "internal server error")
 	}
 }
 
 func writeResponse(w http.ResponseWriter, l *slog.Logger, code int, payload interface{}) bool {
 	resp, err := json.Marshal(payload)
 	if err != nil {
-		writeError(w, l, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "internal server error")
+		writeError(w, l, http.StatusInternalServerError, "internal server error")
 		l.Error("encode response", slog.Any("error", err))
 		return false
 	}
@@ -59,7 +61,7 @@ func parseUUID(w http.ResponseWriter, r *http.Request, l *slog.Logger, pathValue
 	ID := r.PathValue(pathValue)
 	UUID, err := uuid.Parse(ID)
 	if err != nil {
-		writeError(w, l, http.StatusBadRequest, "BAD_REQUEST", "invalid UUID: "+ID)
+		writeError(w, l, http.StatusBadRequest, "invalid UUID: "+ID)
 		l.Info("invalid uuid", slog.Any("path value", pathValue), slog.Any("uuid", ID))
 		return uuid.Nil, false
 	}
@@ -69,12 +71,12 @@ func parseUUID(w http.ResponseWriter, r *http.Request, l *slog.Logger, pathValue
 func validateItemRequest(w http.ResponseWriter, l *slog.Logger, product string, price decimal.Decimal) bool {
 	product = strings.TrimSpace(product)
 	if product == "" {
-		writeError(w, l, http.StatusBadRequest, "EMPTY_PRODUCT", "empty product")
+		writeError(w, l, http.StatusBadRequest, "product must be not empty")
 		l.Info("bad request", slog.Any("error", "empty product"))
 		return false
 	}
 	if price.LessThanOrEqual(decimal.Zero) {
-		writeError(w, l, http.StatusBadRequest, "INVALID_PRICE", "price must be greater than zero")
+		writeError(w, l, http.StatusBadRequest, "price must be greater than zero")
 		l.Info("bad request", slog.Any("error", "invalid price"))
 		return false
 	}
@@ -88,4 +90,17 @@ func decodeBody(w http.ResponseWriter, r *http.Request, v any) error {
 	dec.DisallowUnknownFields()
 
 	return dec.Decode(v)
+}
+
+func registerValidator() *validator2.Validate {
+	validator = validator2.New(validator2.WithRequiredStructEnabled())
+	validator.RegisterCustomTypeFunc(func(field reflect.Value) interface{} {
+		if dec, ok := field.Interface().(decimal.Decimal); ok {
+			// Конвертируем в float64 (или string), чтобы валидатор смог применить gt/gte/lte
+			f, _ := dec.Float64()
+			return f
+		}
+		return nil
+	}, decimal.Decimal{})
+	return validator
 }
