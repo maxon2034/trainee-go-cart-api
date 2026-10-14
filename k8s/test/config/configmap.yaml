@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-config
+  namespace: test
+data:
+  APP_PORT: "8080"
+  DB_NAME: "cart_db"
+  DB_PORT: "5432"
+  DB_USER: "cart_user"
+  POSTGRES_DB: "cart_db"
+  POSTGRES_USER: "cart_user"

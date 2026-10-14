@@ -1,2 +1,3 @@
 .env
 .idea
+k8s/test/secret
