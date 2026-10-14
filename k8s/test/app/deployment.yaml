@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cart-api
+  namespace: test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cart-api
+  template:
+    metadata:
+      labels:
+        app: cart-api
+    spec:
+      containers:
+        - name: api
+          image: trainee-go-cart-api-app:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8080
+              name: http
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "20m"       # Очень низкий запрос (0.02 ядра), чтобы под легко нагружался
+            limits:
+              memory: "256Mi"
+              cpu: "100m"      # Низкий лимит (0.1 ядра), при котором под быстро начнет потреблять 100% и масштабироваться
+          env:
+            - name: DB_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: test-config
+                  key: DB_NAME
+            - name: DB_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: test-config
+                  key: DB_USER
+            - name: DB_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: test-config
+                  key: DB_PORT
+            - name: DB_HOST
+              value: "db-0.db-headless.test.svc.cluster.local"
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: test-secret
+                  key: DB_PASSWORD
