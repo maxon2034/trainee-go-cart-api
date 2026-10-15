@@ -1,0 +1,23 @@
+replicaCount: 1
+
+service:
+  nodePort: 30080
+
+ingress:
+  host: cart-api.dev.local
+
+resources:
+  requests:
+    memory: 64Mi
+    cpu: 20m
+  limits:
+    memory: 256Mi
+    cpu: 100m
+
+autoscaling:
+  minReplicas: 1
+  maxReplicas: 3
+
+db:
+  persistence:
+    size: 1Gi
