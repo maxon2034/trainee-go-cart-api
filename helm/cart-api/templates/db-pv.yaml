@@ -1,0 +1,21 @@
+{{- if and .Values.db.enabled .Values.db.persistence.staticPv.enabled }}
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ include "cart-api.dbName" . }}-{{ .Release.Namespace }}-pv
+  labels:
+    {{- include "cart-api.labels" . | nindent 4 }}
+spec:
+  capacity:
+    storage: {{ .Values.db.persistence.size }}
+  accessModes:
+    {{- toYaml .Values.db.persistence.accessModes | nindent 4 }}
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: {{ include "cart-api.dbStorageClass" . }}
+  claimRef:
+    namespace: {{ .Release.Namespace }}
+    name: hard-{{ include "cart-api.dbName" . }}-0
+  hostPath:
+    path: {{ .Values.db.persistence.staticPv.hostPath }}/{{ .Release.Namespace }}
+    type: DirectoryOrCreate
+{{- end }}

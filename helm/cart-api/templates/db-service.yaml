@@ -1,0 +1,16 @@
+{{- if .Values.db.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "cart-api.dbHeadless" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "cart-api.labels" . | nindent 4 }}
+spec:
+  clusterIP: None
+  selector:
+    {{- include "cart-api.dbSelectorLabels" . | nindent 4 }}
+  ports:
+    - port: {{ .Values.config.DB_PORT }}
+      name: db
+{{- end }}

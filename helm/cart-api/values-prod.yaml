@@ -1,3 +1,8 @@
+image:
+  repository: trainee-go-cart-api-app
+  tag: latest
+  pullPolicy: Never
+
 replicaCount: 3
 
 service:
@@ -19,6 +24,9 @@ autoscaling:
   maxReplicas: 10
 
 db:
+  image:
+    repository: postgres
+    tag: 16-alpine
   resources:
     requests:
       memory: 256Mi

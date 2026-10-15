@@ -1,15 +1,7 @@
-{{/*
-Expand the name of the chart.
-*/}}
 {{- define "cart-api.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
-{{/*
-Create a default fully qualified app name.
-We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
-If release name contains chart name it will be used as a full name.
-*/}}
 {{- define "cart-api.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
@@ -23,40 +15,58 @@ If release name contains chart name it will be used as a full name.
 {{- end }}
 {{- end }}
 
-{{/*
-Create chart name and version as used by the chart label.
-*/}}
+{{- define "cart-api.dbName" -}}
+{{- printf "%s-db" (include "cart-api.fullname" .) | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{- define "cart-api.dbHeadless" -}}
+{{- printf "%s-headless" (include "cart-api.dbName" .) }}
+{{- end }}
+
+{{- define "cart-api.dbHost" -}}
+{{- printf "%s-0.%s.%s.svc.cluster.local" (include "cart-api.dbName" .) (include "cart-api.dbHeadless" .) .Release.Namespace }}
+{{- end }}
+
+{{- define "cart-api.secretName" -}}
+{{- if .Values.secret.existingSecret }}
+{{- .Values.secret.existingSecret }}
+{{- else }}
+{{- printf "%s-secret" (include "cart-api.fullname" .) }}
+{{- end }}
+{{- end }}
+
+{{- define "cart-api.configName" -}}
+{{- printf "%s-config" (include "cart-api.fullname" .) }}
+{{- end }}
+
 {{- define "cart-api.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
-{{/*
-Common labels
-*/}}
 {{- define "cart-api.labels" -}}
 helm.sh/chart: {{ include "cart-api.chart" . }}
-{{ include "cart-api.selectorLabels" . }}
-{{- if .Chart.AppVersion }}
+app.kubernetes.io/name: {{ include "cart-api.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
-{{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
-{{/*
-Selector labels
-*/}}
 {{- define "cart-api.selectorLabels" -}}
+app: {{ include "cart-api.fullname" . }}
 app.kubernetes.io/name: {{ include "cart-api.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
-{{/*
-Create the name of the service account to use
-*/}}
-{{- define "cart-api.serviceAccountName" -}}
-{{- if .Values.serviceAccount.create }}
-{{- default (include "cart-api.fullname" .) .Values.serviceAccount.name }}
-{{- else }}
-{{- default "default" .Values.serviceAccount.name }}
+{{- define "cart-api.dbSelectorLabels" -}}
+app: {{ include "cart-api.dbName" . }}
+app.kubernetes.io/name: {{ include "cart-api.name" . }}-db
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{- define "cart-api.dbStorageClass" -}}
+{{- if .Values.db.persistence.storageClass }}
+{{- .Values.db.persistence.storageClass }}
+{{- else if .Values.db.persistence.staticPv.enabled }}
+{{- "manual" }}
 {{- end }}
 {{- end }}
