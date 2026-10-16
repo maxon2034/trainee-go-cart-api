@@ -11,7 +11,7 @@ export const options = {
     ],
 };
 
-const BASE_URL = 'http://localhost:56395';
+const BASE_URL = 'http://localhost:8080';
 
 export default function () {
     const headers = { 'Content-Type': 'application/json' };

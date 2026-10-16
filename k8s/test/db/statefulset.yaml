@@ -20,6 +20,31 @@ spec:
           ports:
             - containerPort: 5432
               name: db
+          env:
+            # Имя базы данных из ConfigMap
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: test-config
+                  key: POSTGRES_DB
+
+            # Пользователь базы данных из ConfigMap
+            - name: POSTGRES_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: test-config
+                  key: POSTGRES_USER
+
+            # Пароль базы данных из Secret
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: test-secret
+                  key: DB_PASSWORD
+
+            # Подпапка для данных PostgreSQL (для избежания конфликта с lost+found на PVC)
+            - name: PGDATA
+              value: "/var/lib/postgresql/data/pgdata"
           volumeMounts:
             - name: hard
               mountPath: /var/lib/postgresql/data
